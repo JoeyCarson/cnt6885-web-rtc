@@ -1,10 +1,10 @@
 {
-  "name": "WebRTC P2P",
+  "name": "web_rtc",
   "version": "0.1.2",
-  "description": "A simple WebRTC app",
-  "main": "server/server.js",
+  "description": "A sample Node.js app using Express 4",
+  "main": "index.js",
   "scripts": {
-    "start": "node server/index.js"
+    "start": "node server/server.js"
   },
   "dependencies": {
     "express": "~4.9.x",
@@ -15,7 +15,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://git.heroku.com/cherry-cobbler-9879.git"
+    "url": "https://github.com/heroku/node-js-getting-started"
   },
   "keywords": [
     "node",
