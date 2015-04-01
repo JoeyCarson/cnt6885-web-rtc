@@ -1,0 +1,7 @@
+{
+  "name": "WebRTC P2P Video Chat",
+  "description": "A WebRTC application.",
+  "repository": "https://git.heroku.com/cherry-cobbler-9879.git",
+  "logo": "http://node-js-sample.herokuapp.com/node.svg",
+  "keywords": ["node", "express", "static"]
+}
