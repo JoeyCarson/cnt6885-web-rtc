@@ -12,6 +12,12 @@ function registerPeer(request, response) {
   response.send("hello");
 }
 
+// Returns the peer html file.
+function peerApp(request, response) {
+	console.log("request for peer app");
+	response.sendFile('../client/rtcpeer.html');
+}
+
 
 app.use(express.static(__dirname + '/public'));
 app.get('/register', registerPeer);
