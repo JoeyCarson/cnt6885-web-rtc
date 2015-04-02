@@ -25,6 +25,10 @@ function createOfferSuccess(offer)
 {
 	console.log("createOfferSuccess %o", offer);
 	rtcPeer.conn.setLocalDescription(offer);
+
+	// Register back with the server.
+	$.post("register", { sdp: offer }, function(data, status){ alert("Data: " + data + "\nStatus: " + status); });
+
 }
 
 function createOfferFailure(domError)
