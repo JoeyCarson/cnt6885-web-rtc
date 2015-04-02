@@ -1,6 +1,7 @@
-function peerInit()
+function peerInit(localVideoID)
 {
 	console.log("starting peer");
+	rtcPeer.localVideoID = localVideoID;
 	getUserMedia({audio:true, video:true}, gotUserMedia, userMediaFailed);
 }
 
@@ -8,7 +9,14 @@ function gotUserMedia(media)
 {
 	console.log("user media success");
 	console.log("querying for ICE servers");
+	
 	rtcPeer.localStream = media;
+	var url = URL.createObjectURL(media);
+
+	console.log(url);
+
+	$(rtcPeer.localVideoID).src = url;
+
 	window.turnserversDotComAPI.iceServers(onIceServersReady);
 }
 

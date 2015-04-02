@@ -24,7 +24,6 @@ function publicScriptRouter(request, response)
 }
 
 var express = require('express');
-var cool =  require("cool-ascii-faces");
 var app = express();
 
 // Routers.
