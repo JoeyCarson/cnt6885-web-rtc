@@ -21,6 +21,7 @@ function peerApp(request, response) {
 
 app.use(express.static(__dirname + '/public'));
 app.get('/register', registerPeer);
+app.get('/app', peerApp);
 
 // Listen locally.
 app.set('port', (process.env.PORT || 5000));
