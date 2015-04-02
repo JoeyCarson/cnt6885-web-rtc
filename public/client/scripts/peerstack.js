@@ -1,13 +1,24 @@
 function peerInit()
 {
+	console.log("starting peer");
+	getUserMedia({audio:true, video:true}, gotUserMedia, userMediaFailed);
+}
 
-	console.log("starting peer: querying for ICE servers");
+function gotUserMedia(media)
+{
+	console.log("user media success");
+	console.log("querying for ICE servers");
+	rtcPeer.localStream = media;
 	window.turnserversDotComAPI.iceServers(onIceServersReady);
+}
+
+function userMediaFailed(error)
+{
+	console.log("user media failed");
 }
 
 function onIceServersReady(data)
 {
-
 	console.log("onIceServersReady: %o", data);
 	initConn(data);
 }
@@ -17,7 +28,10 @@ function initConn(rtcConfig)
 	// 1.  Create the RTCPeerConnection
 	rtcPeer.conn = new RTCPeerConnection({ iceServers: rtcConfig });
 
-	// 2.  Create your offer.
+	// 2.  Add the local stream.
+	rtcPeer.conn.addStream(rtcPeer.localStream);
+
+	// 3.  Create your offer.
 	rtcPeer.conn.createOffer(createOfferSuccess, createOfferFailure);
 }
 
