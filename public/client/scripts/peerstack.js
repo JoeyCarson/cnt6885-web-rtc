@@ -13,10 +13,7 @@ function gotUserMedia(media)
 	rtcPeer.localStream = media;
 	var url = URL.createObjectURL(media);
 
-	console.log(url);
-
-	$(rtcPeer.localVideoID).src = url;
-
+	document.getElementById(rtcPeer.localVideoID).src = url;
 	window.turnserversDotComAPI.iceServers(onIceServersReady);
 }
 
@@ -50,7 +47,6 @@ function createOfferSuccess(offer)
 
 	// Register back with the server.
 	$.post("register", { sdp: offer }, function(data, status){ alert("Data: " + data + "\nStatus: " + status); });
-
 }
 
 function createOfferFailure(domError)
