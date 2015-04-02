@@ -24,6 +24,7 @@ function initConn(rtcConfig)
 function createOfferSuccess(offer)
 {
 	console.log("createOfferSuccess %o", offer);
+	rtcPeer.conn.setLocalDescription(offer);
 }
 
 function createOfferFailure(domError)
