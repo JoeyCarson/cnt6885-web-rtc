@@ -8,7 +8,7 @@ var app = express();
 // where app is an instance of express, METHOD is an HTTP request method, path is a path on the server, 
 // and callback is the function executed when the route is matched.
 function registerPeer(request, response) {
-  console.log("registerPeer %o", request);
+  console.log("registerPeer");
   response.send("hello");
 }
 
