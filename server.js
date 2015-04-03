@@ -6,7 +6,7 @@
 // and callback is the function executed when the route is matched.
 function registerPeer(request, response) {
 
-	console.log("ip is: " + request.ip);
+	console.log("ip is: " + request.ip + " host is: " request.hostname);
 
 	for ( var i = 0; i < request.ips.length; i++ ) {
 		console.log("ip: " + request.ips[i]);
