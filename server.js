@@ -26,6 +26,8 @@ function publicScriptRouter(request, response)
 var express = require('express');
 var app = express();
 
+app.enable('trust proxy');
+
 // Routers.
 app.use(express.static(__dirname + '/public'));
 app.post('/register', registerPeer);
