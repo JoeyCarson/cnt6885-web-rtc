@@ -4,8 +4,23 @@
 		<script src="http://api.turnservers.com/api.js?key=ttdHWaqratBAoprkvLHShkaPHpILOQbz"></script>
 		<script type="text/javascript" src="script/adapter.js"></script>
 		<script type="text/javascript" src="script/peerstack.js"></script>
+		<style type="text/css">
+			#localVideoBox {
+				background-color: orange;
+				text-align: right;
+			}
+
+			#localVid {
+				width: 200;
+				display: inline-block;
+			}
+
+		</style>
 	</head>
 	<body onload="peerInit('localVid')">
-		<video width=200 id="localVid" autoplay controls muted/></video>
+		<div id="localVideoBox">
+			<video id="localVid" autoplay muted/></video>
+			Me
+		</div>
 	</body>
 </html>
