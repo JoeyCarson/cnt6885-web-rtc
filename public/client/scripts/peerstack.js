@@ -38,6 +38,14 @@ function initConn(rtcConfig)
 
 	// 3.  Create your offer.
 	rtcPeer.conn.createOffer(createOfferSuccess, createOfferFailure);
+
+	// 4.  Hook up various callbacks.
+	rtcPeer.conn.onicecandidate = onIceCandidate;
+}
+
+function onIceCandidate(event)
+{
+	console.log("onIceCandidate %o", event.candidate);
 }
 
 function createOfferSuccess(offer)
