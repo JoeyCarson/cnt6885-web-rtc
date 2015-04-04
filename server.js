@@ -4,20 +4,23 @@
 // handlers for the endpoint. It takes the following structure app.METHOD(path, [callback...], callback),
 // where app is an instance of express, METHOD is an HTTP request method, path is a path on the server, 
 // and callback is the function executed when the route is matched.
-function registerPeer(request, response) {
+function registerPeer(request, response) 
+{
 
 	console.log("ip is: " + request.ip);
-	console.log(" host is: " + request.hostname);
+	console.log("host is: " + request.hostname);
+	console.log("request is %o", request.body);
 
 	for ( var i = 0; i < request.ips.length; i++ ) {
 		console.log("ip: " + request.ips[i]);
 	}
 
-  response.send("thanks for registering");
+	response.send("thanks for registering");
 }
 
 // Returns the peer html file.
-function peerApp(request, response) {
+function peerApp(request, response) 
+{
 	console.log("request for peer app");
 	response.sendFile('client/rtcpeer.html', {root: __dirname + "/public"});
 }
@@ -30,13 +33,21 @@ function publicScriptRouter(request, response)
 	}
 }
 
+// require modules.	
 var express = require('express');
+var wsock = require('nodejs-websocket');
+var bodyParser = require('body-parser');
+var multer = require('multer');
+
+// configure the http server.
 var app = express();
-
 app.enable('trust proxy');
-
-// Routers.
 app.use(express.static(__dirname + '/public'));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
+app.use(multer()); // for parsing multipart/form-data
+
+// configure http routers.
 app.post('/register', registerPeer);
 app.get('/app', peerApp);
 app.get('/script/:name', publicScriptRouter);
@@ -46,3 +57,8 @@ app.set('port', (process.env.PORT || 5000));
 app.listen(app.get('port'), function() {
   console.log("Node app is running at localhost:" + app.get('port'));
 });
+
+
+
+
+
