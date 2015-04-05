@@ -32,6 +32,9 @@ function userMediaFailed(error)
 function onIceServersReady(data)
 {
 	console.log("onIceServersReady: %o", data);
+
+	data[data.length] = {url: "stun:stun.stunprotocol.org:3478"}l
+
 	initConn(data);
 }
 
@@ -73,10 +76,11 @@ function onIceCandidate(event)
 	if ( event.candidate ) {
 		console.log("onIceCandidate candidate");
 		rtcPeer.serverMsg.iceCandidates[rtcPeer.serverMsg.iceCandidates.length] = event.candidate;
-	} else {
+	} else if ( rtcPeer.serverMsg.iceCandidates.length > 0 ) {
 
 		// if we're receiving the null candidate, it appears that the stack has found all it can.
 		// this logic may not be sound, but it appears to be consistent for the time being.
+		// this is sort of the null termination of the list.
 		console.log("onIceCandidate candidate is null. dump candidates.");
 		for ( var i = 0; i < rtcPeer.serverMsg.iceCandidates.length; i++ ) {
 			var candidate = rtcPeer.serverMsg.iceCandidates[i];
@@ -84,13 +88,12 @@ function onIceCandidate(event)
 			rtcPeer.conn.addIceCandidate(candidate);
 		}
 
-		if ( rtcPeer.serverMsg.iceCandidates.length > 0 ) {
-			// Register back with the server.
-			var jsonStr = JSON.stringify( { peerDescription: rtcPeer.serverMsg } );
-			$.post("register", jsonStr, function(data, status){ console.log("Data: " + data + "\nStatus: " + status); });
-		} else {
-			console.log("can't register with server.  no ice candidates");
-		}
+		// Register back with the server.
+		var jsonStr = JSON.stringify( { peerDescription: rtcPeer.serverMsg } );
+		$.post("register", jsonStr, function(data, status){ console.log("Data: " + data + "\nStatus: " + status); });
+
+	} else {
+		console.log("can't register with server.  no ice candidates");
 	}
 }
 
