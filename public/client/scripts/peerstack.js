@@ -33,7 +33,7 @@ function onIceServersReady(data)
 {
 	console.log("onIceServersReady: %o", data);
 
-	data[data.length] = {url: "stun:stun.stunprotocol.org:3478"}l
+	data[data.length] = {url: "stun:stun.stunprotocol.org:3478"};
 
 	initConn(data);
 }
