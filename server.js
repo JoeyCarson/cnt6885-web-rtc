@@ -60,20 +60,21 @@ function createSignalMsg()
 function peerApp(request, response) 
 {
 	console.log("request for peer app");
-	response.sendfile('client/rtcpeer.html', {root: __dirname + "/public"});
+	response.sendFile('client/rtcpeer.html', {root: __dirname + "/public"});
 }
 
 function publicScriptRouter(request, response)
 {
 	if ( request.params.name ) {
 		console.log("peer requesting script: " + request.params.name);
-		response.sendfile(request.params.name, {root: __dirname + "/public/client/scripts"});
+		response.sendFile(request.params.name, {root: __dirname + "/public/client/scripts"});
 	}
 }
 
 // require modules.	
 var express = require('express');
-var wsock = require('nodejs-websocket');
+var http = require('http');
+var WebSocketServer = require("ws").Server
 var bodyParser = require('body-parser');
 var multer = require('multer');
 
@@ -84,7 +85,7 @@ var peers = {
 				descriptions: [] // array of description objects, ordered according to the addresses list.
 			};
 
-// 1.  configure the http server.  The underlying http() and io() instantiaton is necessary.
+// 1.  Configure the application context settings.
 var app = express();
 app.enable('trust proxy');
 app.use(express.static(__dirname + '/public'));
@@ -92,30 +93,28 @@ app.use(bodyParser.json()); // parse json
 app.use(bodyParser.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
 app.use(multer()); // for parsing multipart/form-data
 
-// a. configure http routers.
+// a. configure http routers.  these will handle requests coming from app.
+app.set('port', (process.env.PORT || 5000));
 app.post('/register', registerPeer);
 app.get('/app', peerApp);
 app.get('/script/:name', publicScriptRouter);
 
-// b. Listen locally.  Binding doesn't seem to work on Heroku cloud.
-app.set('port', (process.env.PORT || 5000));
-app.listen(app.get('port'), function() {
-  console.log("Node app is running at localhost:" + app.get('port'));
-});
+// 2.  Create the http server itself, passing app to be the request handler.
+// app will handle routing and multiplexing of incoming requests to different
+// route middleware handlers.
+var httpServer = http.createServer(app);
+httpServer.listen( app.get('port') );
 
+// 3.  Create the 
+var wss = new WebSocketServer( { server: httpServer } );
 
-var io = require('socket.io')(5001);
-var chat = io
-  .of('/chat')
-  .on('connection', function (socket) {
-  	console.log("connection on 9090 /chat");
-  });
+wss.on("connection", function(ws) {
+  console.log("websocket connection open")
 
-
-
-
-
-
+  ws.on("close", function() {
+    console.log("websocket connection close")
+  })
+})
 
 
 
