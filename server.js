@@ -104,7 +104,7 @@ app.listen(app.get('port'), function() {
 });
 
 
-var io = require('socket.io')(128);
+var io = require('socket.io')(14000);
 var chat = io
   .of('/chat')
   .on('connection', function (socket) {
