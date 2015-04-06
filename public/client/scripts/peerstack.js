@@ -91,6 +91,7 @@ function onIceCandidate(event)
 		// Register back with the server.
 		var jsonStr = JSON.stringify( { peerDescription: rtcPeer.serverMsg } );
 		$.post("register", jsonStr, function(data, status){ console.log("Data: " + data + "\nStatus: " + status); });
+		//rtcPeer.channel = 	new WebSocket("ws:");
 
 	} else {
 		console.log("can't register with server.  no ice candidates");
