@@ -21,7 +21,7 @@ function gotUserMedia(media)
 
 function initSignalChannel()
 {
-	//rtcPeer.channel = new WebSocket("");
+	rtcPeer.channel = new WebSocket("ws:cherry-cobbler-9879.herokuapp.com:9090/chat");
 }
 
 function userMediaFailed(error)
@@ -91,7 +91,7 @@ function onIceCandidate(event)
 		// Register back with the server.
 		var jsonStr = JSON.stringify( { peerDescription: rtcPeer.serverMsg } );
 		$.post("register", jsonStr, function(data, status){ console.log("Data: " + data + "\nStatus: " + status); });
-		//rtcPeer.channel = 	new WebSocket("ws:");
+		rtcPeer.channel = 	new WebSocket("ws:");
 
 	} else {
 		console.log("can't register with server.  no ice candidates");
