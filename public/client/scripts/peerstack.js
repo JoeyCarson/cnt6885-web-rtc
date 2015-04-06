@@ -21,7 +21,7 @@ function gotUserMedia(media)
 
 function initSignalChannel()
 {
-	rtcPeer.channel = new WebSocket("ws:cherry-cobbler-9879.herokuapp.com:9099/chat");
+	rtcPeer.channel = new WebSocket("ws:cherry-cobbler-9879.herokuapp.com:9090/chat");
 }
 
 function userMediaFailed(error)
