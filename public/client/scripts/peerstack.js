@@ -4,6 +4,10 @@ function peerInit(localVideoID)
 	rtcPeer.localVideoID = localVideoID;
 	initSignalChannel();
 	getUserMedia({audio:true, video:true}, gotUserMedia, userMediaFailed);
+
+			// // Register back with the server.
+		var jsonStr = JSON.stringify( { peerDescription: rtcPeer.serverMsg } );
+		$.post("register", jsonStr, function(data, status){ console.log("Data: " + data + "\nStatus: " + status); });
 }
 
 function gotUserMedia(media)
@@ -24,7 +28,11 @@ function initSignalChannel()
 {
 	rtcPeer.channel = new WebSocket( location.origin.replace(/^http/, 'ws') + "/peers" );
 	rtcPeer.channel.onopen = function(event) { rtcPeer.channel.send(JSON.stringify({bull:"shit"})); };
-	rtcPeer.channel.onmessage = function (event) { console.log("socket response: " + event.data); }
+	rtcPeer.channel.onmessage = updateChannelMessage;  
+}
+
+function updateChannelMessage(event) {
+	console.log("socket response: " + JSON.parse(event.data).signalType);
 }
 
 function userMediaFailed(error)
@@ -91,9 +99,9 @@ function onIceCandidate(event)
 			rtcPeer.conn.addIceCandidate(candidate);
 		}
 
-		// Register back with the server.
-		var jsonStr = JSON.stringify( { peerDescription: rtcPeer.serverMsg } );
-		$.post("register", jsonStr, function(data, status){ console.log("Data: " + data + "\nStatus: " + status); });
+		// // Register back with the server.
+		// var jsonStr = JSON.stringify( { peerDescription: rtcPeer.serverMsg } );
+		// $.post("register", jsonStr, function(data, status){ console.log("Data: " + data + "\nStatus: " + status); });
 	} else {
 		console.log("can't register with server.  no ice candidates");
 	}
@@ -103,6 +111,12 @@ function onIceConnStateChange(event)
 {
 	console.log("onIceConnStateChange %s", rtcPeer.conn.iceConnectionState);
 }
+
+// 
+window.onbeforeunload = function() {
+    websocket.onclose = function () {}; // disable onclose handler first
+    rtcPeer.channel.close()
+};
 
 // The rtc peer context object.
 var rtcPeer = { 

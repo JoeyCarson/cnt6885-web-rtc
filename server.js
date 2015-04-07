@@ -11,10 +11,12 @@ var UPDATE_ENDPOINT_PEERS = "/peers";
 // and callback is the function executed when the route is matched.
 function registerPeer(request, response) 
 {
-	var connURL = request.headers;
-	console.log("ip is: %o", connURL);
-	//addPeer(request.ip, request.body);
-	//response.send();
+
+	// accept the request.
+	response.send();
+
+	// add the new peer.
+	addPeer(request.ip, request.body);
 }
 
 function addPeer(address, peerObj)
@@ -26,8 +28,9 @@ function addPeer(address, peerObj)
 		clients[address] = { description: peerObj, socket: null };
 	}
 
-	// 1.  Notify other connected peers, except for the one that we're  adding.
+	// 1.  Notify all peers.
 	for ( var addr in clients ) {
+		console.log("addr is " + addr);
 		var c = clients[addr];
 		var socket = c.socket;
 		if ( socket ) {
@@ -104,12 +107,13 @@ httpServer.listen( app.get('port') );
 var wss = new WebSocketServer( { server: httpServer, path: UPDATE_ENDPOINT_PEERS } );
 
 wss.on("connection", function(webSocket) {
-	var remoteAddress = webSocket._socket.remoteAddress + ":" + webSocket._socket.remotePort;
+	var remoteAddress = webSocket._socket.remoteAddress;// + ":" + webSocket._socket.remotePort;
 	
 	var exists = clients[remoteAddress] != null;
 	if ( exists ) {
-		console.log("socket server connection: associating new connection with registered peer.");
-		clients[remoteAddress].socket = webSocket;	
+			console.log("socket server connection: associating new connection with registered peer.");
+		clients[remoteAddress].socket = webSocket;
+		console.log("%o", clients[remoteAddress]);
 	} else {
 		console.log("socket server connection: associating new connection with unregistered peer.");
 		clients[remoteAddress] = { description: null, socket: webSocket };
