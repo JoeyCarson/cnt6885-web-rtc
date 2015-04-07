@@ -2,8 +2,8 @@ function peerInit(localVideoID)
 {
 	console.log("starting peer");
 	rtcPeer.localVideoID = localVideoID;
-	getUserMedia({audio:true, video:true}, gotUserMedia, userMediaFailed);
 	initSignalChannel();
+	getUserMedia({audio:true, video:true}, gotUserMedia, userMediaFailed);
 }
 
 function gotUserMedia(media)
@@ -14,16 +14,17 @@ function gotUserMedia(media)
 	rtcPeer.localStream = media;
 	var url = URL.createObjectURL(media);
 
-	// comment out to conserve battery during development.
-	//document.getElementById(rtcPeer.localVideoID).src = url;
+	document.getElementById(rtcPeer.localVideoID).src = url;
+
+	// Find some TURN servers to help out if we're behind a corporate network.
 	window.turnserversDotComAPI.iceServers(onIceServersReady);
 }
 
 function initSignalChannel()
 {
-	
-	var host = location.origin.replace(/^http/, 'ws')
-	var ws = new WebSocket(host);
+	rtcPeer.channel = new WebSocket( location.origin.replace(/^http/, 'ws') + "/peers" );
+	rtcPeer.channel.onopen = function(event) { rtcPeer.channel.send(JSON.stringify({bull:"shit"})); };
+	rtcPeer.channel.onmessage = function (event) { console.log("socket response: " + event.data); }
 }
 
 function userMediaFailed(error)
@@ -93,10 +94,6 @@ function onIceCandidate(event)
 		// Register back with the server.
 		var jsonStr = JSON.stringify( { peerDescription: rtcPeer.serverMsg } );
 		$.post("register", jsonStr, function(data, status){ console.log("Data: " + data + "\nStatus: " + status); });
-		
-
-		//rtcPeer.channel = 	new WebSocket("ws:");
-
 	} else {
 		console.log("can't register with server.  no ice candidates");
 	}
@@ -110,7 +107,7 @@ function onIceConnStateChange(event)
 // The rtc peer context object.
 var rtcPeer = { 
 				conn: null, 
-				channel: null, 
+				channel: null,
 				serverMsg: {
 					status: "Vegas Baby",
 					sdp: null,

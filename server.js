@@ -3,7 +3,7 @@
 var SIGNAL_TYPE_PEER_ADDED = "peer_added";
 
 // Update channel endpoint names.
-var UPDATE_ENDPOINT_PEERS = "peers";
+var UPDATE_ENDPOINT_PEERS = "/peers";
 
 // A route is a combination of a URI, a HTTP request method (GET, POST, and so on), and one or more 
 // handlers for the endpoint. It takes the following structure app.METHOD(path, [callback...], callback),
@@ -11,49 +11,47 @@ var UPDATE_ENDPOINT_PEERS = "peers";
 // and callback is the function executed when the route is matched.
 function registerPeer(request, response) 
 {
-
-	console.log("ip is: " + request.ip);
-	console.log("request is %o", request.body);
-
+	var connURL = request.headers.host;
+	console.log("ip is: " + connURL);
+	addPeer(request.ip, request.body);
 	response.send();
 }
 
 function addPeer(address, peerObj)
 {
-	if ( !peers.addresses.indexOf(address) )
-	{
-		console.log("adding peer at %s", address);
+	var exists = clients[address] != null;
+	if ( exists ) {
+		clients[address].description = peerObj;	
+	} else {
+		clients[address] = { description: peerObj, socket: null };
+	}
 
-		peers.addresses.push(address);
-		peers.descriptions.push(peerObj);
-
-		// 1.  Notify other connected peers, except for the one that we're  adding.
-		for ( var i = 0; i < peers.addresses.length; i++ ) {
-			var targetAddr = peers.addresses[i];
-			if ( targetAddr != address ) {
-				sendPeerAdded(targetAddr, peerObj);
-			}
+	// 1.  Notify other connected peers, except for the one that we're  adding.
+	for ( var addr in clients ) {
+		var c = clients[addr];
+		var socket = c.socket;
+		if ( socket ) {
+			sendPeerAdded(socket, peerObj);
+		} else if ( c.description != peerObj ) {
+			console.log("BAD!!  NULL SOCKET WHEN TRYING TO SEND UPDATE.");
 		}
-
-		//
-
 	}
 }
 
 // Send the peer added signal with the body being peerObj to the peer at targetAddr
-function sendPeerAdded(targetAddr, peerObj)
+function sendPeerAdded(targetSocket, peerObj)
 {
-	var msg = createSignalMsg();
-	msg.signalType = SIGNAL_TYPE_PEER_ADDED;
+	var msg = createHostMsg(SIGNAL_TYPE_PEER_ADDED);
 	msg.peer = peerObj;
+	targetSocket.send(JSON.stringify(msg));
 }
 
 // Create a signal message with all asociated default properties.
 // Signal senders should create this object and update it accordingly when
 // building a signal message to send to a peer.
-function createSignalMsg()
+function createHostMsg(type)
 {
-	return { signalType: "unset" };
+	return { signalType: type };
 }
 
 // Returns the peer html file.
@@ -74,16 +72,11 @@ function publicScriptRouter(request, response)
 // require modules.	
 var express = require('express');
 var http = require('http');
-var WebSocketServer = require("ws").Server
 var bodyParser = require('body-parser');
 var multer = require('multer');
 
 // Tracks connected peers.
-var peers = {
-
-				addresses: [], // array of addresses of each peer, determined via request.ip.
-				descriptions: [] // array of description objects, ordered according to the addresses list.
-			};
+var clients = { };
 
 // 1.  Configure the application context settings.
 var app = express();
@@ -102,19 +95,37 @@ app.get('/script/:name', publicScriptRouter);
 // 2.  Create the http server itself, passing app to be the request handler.
 // app will handle routing and multiplexing of incoming requests to different
 // route middleware handlers.
+var http = require('http');
+var WebSocketServer = require("ws").Server
 var httpServer = http.createServer(app);
 httpServer.listen( app.get('port') );
 
-// 3.  Create the 
-var wss = new WebSocketServer( { server: httpServer } );
+// 3.  Create one of these for all socket endpoints.
+var wss = new WebSocketServer( { server: httpServer, path: UPDATE_ENDPOINT_PEERS } );
 
-wss.on("connection", function(ws) {
-  console.log("websocket connection open")
+wss.on("connection", function(webSocket) {
+	var remoteAddress = webSocket._socket.remoteAddress + ":" + webSocket._socket.remotePort;
+	
+	var exists = clients[remoteAddress] != null;
+	if ( exists ) {
+		console.log("socket server connection: associating new connection with registered peer.");
+		clients[remoteAddress].socket = webSocket;	
+	} else {
+		console.log("socket server connection: associating new connection with unregistered peer.");
+		clients[remoteAddress] = { description: null, socket: webSocket };
+	}	
 
-  ws.on("close", function() {
-    console.log("websocket connection close")
-  })
-})
+	webSocket.on("message", function(data, flags) {
+		var obj = JSON.parse(data);
+		console.log("obj is %o", obj);
+		webSocket.send("thanks!!");
+	});
 
+	webSocket.on("close", function() {
+		var remoteAddress = webSocket._socket.remoteAddress;
+		clients[remoteAddress] = null;
+		console.log("websocket %s connection close", UPDATE_ENDPOINT_PEERS);
+	});
 
+});
 
