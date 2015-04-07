@@ -49,7 +49,7 @@ function addPeer(address, peerObj)
 function removePeer(address) {
 	
 	// Remove the peer.
-	var peerID = clients[address].id;
+	var peerID = clients[address].description.id;
 	var wasDeleted = delete clients[address];
 	console.log("websocket: close: %s connection closed for client %s wasDeleted: %s", UPDATE_ENDPOINT_PEERS, address, wasDeleted);	
 
