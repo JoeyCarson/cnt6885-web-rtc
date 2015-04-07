@@ -13,8 +13,8 @@ function registerPeer(request, response)
 {
 	var connURL = request.headers.host;
 	console.log("ip is: " + connURL);
-	addPeer(request.ip, request.body);
-	response.send();
+	//addPeer(request.ip, request.body);
+	//response.send();
 }
 
 function addPeer(address, peerObj)
