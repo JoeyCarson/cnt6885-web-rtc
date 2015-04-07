@@ -12,7 +12,7 @@ var UPDATE_ENDPOINT_PEERS = "/peers";
 function registerPeer(request, response) 
 {
 	var connURL = request.headers;
-	console.log("ip is: %o" + connURL);
+	console.log("ip is: %o", connURL);
 	//addPeer(request.ip, request.body);
 	//response.send();
 }
