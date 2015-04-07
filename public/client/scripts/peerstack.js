@@ -114,6 +114,7 @@ function onIceConnStateChange(event)
 
 // 
 window.onbeforeunload = function() {
+	console.log("user is closing");
     websocket.onclose = function () {}; // disable onclose handler first
     rtcPeer.channel.close()
 };

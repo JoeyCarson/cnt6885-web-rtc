@@ -1,6 +1,7 @@
 
 // event types.
-var SIGNAL_TYPE_PEER_ADDED = "peer_added";
+var SIGNAL_TYPE_PEER_ADDED = "peer_joined";
+var SIGNAL_TYPE_PEER_LEFT = "peer_left";
 
 // Update channel endpoint names.
 var UPDATE_ENDPOINT_PEERS = "/peers";
@@ -11,26 +12,30 @@ var UPDATE_ENDPOINT_PEERS = "/peers";
 // and callback is the function executed when the route is matched.
 function registerPeer(request, response) 
 {
+	var uid = new Date().getTime();
+	var peer = request.body;
 
 	// accept the request.
-	response.send();
+	response.send( JSON.stringify( { peerID: uid } ) );
 
 	// add the new peer.
-	addPeer(request.ip, request.body);
+	peer.id = uid;
+	addPeer(request.ip, peer);
 }
 
 function addPeer(address, peerObj)
 {
 	var exists = clients[address] != null;
 	if ( exists ) {
+		console.log("addPeer: updating peer description at %s", address);
 		clients[address].description = peerObj;	
 	} else {
+		console.log("addPeer: adding new peer description at %s", address);
 		clients[address] = { description: peerObj, socket: null };
 	}
 
 	// 1.  Notify all peers.
 	for ( var addr in clients ) {
-		console.log("addr is " + addr);
 		var c = clients[addr];
 		var socket = c.socket;
 		if ( socket ) {
@@ -41,12 +46,36 @@ function addPeer(address, peerObj)
 	}
 }
 
+function removePeer(address) {
+	
+	// Remove the peer.
+	var peerID = clients[address].id;
+	var wasDeleted = delete clients[address];
+	console.log("websocket: close: %s connection closed for client %s wasDeleted: %s", UPDATE_ENDPOINT_PEERS, address, wasDeleted);	
+
+	// Let other clients know.
+	for ( var addr in clients ) {
+		var cli = clients[addr];
+		var sock = cli.socket;
+		if ( sock, id ) {
+			sendPeerRemoved(sock, peerID);
+		}
+	}
+}
+
 // Send the peer added signal with the body being peerObj to the peer at targetAddr
 function sendPeerAdded(targetSocket, peerObj)
 {
 	var msg = createHostMsg(SIGNAL_TYPE_PEER_ADDED);
 	msg.peer = peerObj;
 	targetSocket.send(JSON.stringify(msg));
+}
+
+function sendPeerRemoved(targetSocket, peerID)
+{
+	var msg = createHostMsg(SIGNAL_TYPE_PEER_LEFT);
+	msg.peerID = peerID;
+	targetSocket.send( JSON.stringify( msg ) );
 }
 
 // Create a signal message with all asociated default properties.
@@ -107,28 +136,25 @@ httpServer.listen( app.get('port') );
 var wss = new WebSocketServer( { server: httpServer, path: UPDATE_ENDPOINT_PEERS } );
 
 wss.on("connection", function(webSocket) {
-	var remoteAddress = webSocket._socket.remoteAddress;// + ":" + webSocket._socket.remotePort;
-	
+	var remoteAddress = webSocket._socket.remoteAddress;
 	var exists = clients[remoteAddress] != null;
 	if ( exists ) {
-			console.log("socket server connection: associating new connection with registered peer.");
+		console.log("socket server connection: associating new connection from %s with registered peer.", remoteAddress);
 		clients[remoteAddress].socket = webSocket;
-		console.log("%o", clients[remoteAddress]);
 	} else {
-		console.log("socket server connection: associating new connection with unregistered peer.");
+		console.log("socket server connection: associating new connection from %s with unregistered peer.", remoteAddress);
 		clients[remoteAddress] = { description: null, socket: webSocket };
 	}	
 
 	webSocket.on("message", function(data, flags) {
 		var obj = JSON.parse(data);
-		console.log("obj is %o", obj);
+		console.log("websocket: message: obj is %o", obj);
 		webSocket.send("thanks!!");
 	});
 
 	webSocket.on("close", function() {
-		var remoteAddress = webSocket._socket.remoteAddress;
-		clients[remoteAddress] = null;
-		console.log("websocket %s connection close", UPDATE_ENDPOINT_PEERS);
+		// Praise satin for closures!!
+		removePeer(remoteAddress);
 	});
 
 });
