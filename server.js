@@ -11,8 +11,8 @@ var UPDATE_ENDPOINT_PEERS = "/peers";
 // and callback is the function executed when the route is matched.
 function registerPeer(request, response) 
 {
-	var connURL = request.headers.host;
-	console.log("ip is: " + connURL);
+	var connURL = request.headers;
+	console.log("ip is: %o" + connURL);
 	//addPeer(request.ip, request.body);
 	//response.send();
 }
