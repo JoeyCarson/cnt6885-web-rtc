@@ -27,8 +27,11 @@ function gotUserMedia(media)
 function initSignalChannel()
 {
 	rtcPeer.channel = new WebSocket( location.origin.replace(/^http/, 'ws') + "/peers" );
-	rtcPeer.channel.onopen = function(event) { rtcPeer.channel.send(JSON.stringify({bull:"shit"})); };
 	rtcPeer.channel.onmessage = updateChannelMessage;  
+	rtcPeer.channel.onopen = function(event) { 
+		//rtcPeer.channel.send(JSON.stringify({bull:"shit"})); }
+		console.log("remote socket opened");
+	}
 }
 
 function updateChannelMessage(event) {
