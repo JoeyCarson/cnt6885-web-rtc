@@ -159,7 +159,7 @@ function addPeer(connID, peerObj)
 function removePeer(connID) {
 	
 	// Remove the peer.
-	if ( clients[address] ) {
+	if ( clients[connID] ) {
 
 		var p = clients[connID];
 		var peerID = typeof p.id != 'undefined';
