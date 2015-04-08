@@ -79,7 +79,7 @@ wss.on("connection", function(webSocket) {
 		clients[remoteAddress].socket = webSocket;
 	} else {
 		console.log("socket server connection: associating new connection from %s with unregistered peer.", remoteAddress);
-		clients[remoteAddress] = { description: null, socket: webSocket, id: -1 };
+		clients[remoteAddress] = { description: null, socket: webSocket };
 	}	
 
 	// 2.  Hook up handlers for communication over this particular socket.
@@ -134,7 +134,7 @@ function addPeer(address, peerObj)
 		clients[address].description = peerObj;	
 	} else {
 		console.log("addPeer: adding new peer description at %s", address);
-		clients[address] = { description: peerObj, socket: null, id: -1 };
+		clients[address] = { description: peerObj, socket: null };
 	}
 
 	// 1.  Notify all peers.
@@ -152,16 +152,18 @@ function addPeer(address, peerObj)
 function removePeer(address) {
 	
 	// Remove the peer.
-	var peerID = clients[address].description.id;
-	var wasDeleted = delete clients[address];
-	console.log("websocket: close: %s connection closed for client %s wasDeleted: %s", UPDATE_ENDPOINT_PEERS, address, wasDeleted);	
+	if ( clients[address] ) {
+		var peerID = clients[address].id;
+		var wasDeleted = delete clients[address];
+		console.log("websocket: close: %s connection closed for client %s wasDeleted: %s", UPDATE_ENDPOINT_PEERS, address, wasDeleted);	
 
-	// Let other clients know.
-	for ( var addr in clients ) {
-		var cli = clients[addr];
-		var sock = cli.socket;
-		if ( sock, id ) {
-			sendPeerRemoved(sock, peerID);
+		// Let other clients know.
+		for ( var addr in clients ) {
+			var cli = clients[addr];
+			var sock = cli.socket;
+			if ( sock, id ) {
+				sendPeerRemoved(sock, peerID);
+			}
 		}
 	}
 }
