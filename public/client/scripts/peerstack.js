@@ -42,6 +42,7 @@ function updateChannelMessage(event) {
 
 		console.log("updateChannelMessage: received welcome from host.");
 		handleWelcome(msgObj);
+		
 	} else if ( msgObj.signalType == "peer_joined" ) {
 		console.log("updateChannelMessage: received peer_joined from host.");
 		if ( msgObj.peer.id == rtcPeer.description.id ) {

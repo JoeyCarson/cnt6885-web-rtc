@@ -73,13 +73,16 @@ wss.on("connection", function(webSocket) {
 
 	// 1.  Associate the socket with the remote address it came from.
 	var remoteAddress = webSocket._socket.remoteAddress;
-	var exists = clients[remoteAddress] != null;
+	var remotePort = webSocket._socket.remotePort;
+	var clientConnID = remoteAddress + ":" + remotePort;
+
+	var exists = clients[clientConnID] != null;
 	if ( exists ) {
-		console.log("socket server connection: associating new connection from %s with registered peer.", remoteAddress);
-		clients[remoteAddress].socket = webSocket;
+		console.log("socket server connection: associating new connection from %s with registered peer.", clientConnID);
+		clients[clientConnID].socket = webSocket;
 	} else {
-		console.log("socket server connection: associating new connection from %s with unregistered peer.", remoteAddress);
-		clients[remoteAddress] = { description: null, socket: webSocket };
+		console.log("socket server connection: associating new connection from %s with unregistered peer.", clientConnID);
+		clients[clientConnID] = { description: null, socket: webSocket };
 	}	
 
 	// 2.  Hook up handlers for communication over this particular socket.
@@ -89,7 +92,7 @@ wss.on("connection", function(webSocket) {
 
 	webSocket.on("close", function() {
 		// Praise satin for closures!!
-		removePeer(remoteAddress);
+		removePeer(clientConnID);
 	});
 
 });
@@ -109,7 +112,7 @@ function processMessage(socket, data, flags)
 	}
 }
 
-function handleRegistration(socket, obj)
+function handleRegistration(webSocket, obj)
 {
 	// Create an ID for the peer.  Just use a timestamp for now.
 	var uid = new Date().getTime();
@@ -119,22 +122,26 @@ function handleRegistration(socket, obj)
 	// First respond to the caller with a welcome message.
 	var msg = createHostMsg( H2C_SIGNAL_WELCOME );
 	msg.id = uid;
-	socket.send( JSON.stringify( msg ) );
+	webSocket.send( JSON.stringify( msg ) );
 
 	// Next, add the peer into the list.
-	addPeer(socket._socket.remoteAddress, peer);
+	var remoteAddress = webSocket._socket.remoteAddress;
+	var remotePort = webSocket._socket.remotePort;
+	var clientConnID = remoteAddress + ":" + remotePort;
+
+	addPeer(clientConnID, peer);
 }
 
 
-function addPeer(address, peerObj)
+function addPeer(connID, peerObj)
 {
-	var exists = clients[address] != null;
+	var exists = clients[connID] != null;
 	if ( exists ) {
-		console.log("addPeer: updating peer description at %s", address);
-		clients[address].description = peerObj;	
+		console.log("addPeer: updating peer description at %s", connID);
+		clients[connID].description = peerObj;	
 	} else {
-		console.log("addPeer: adding new peer description at %s", address);
-		clients[address] = { description: peerObj, socket: null };
+		console.log("addPeer: adding new peer description at %s", connID);
+		clients[connID] = { description: peerObj, socket: null };
 	}
 
 	// 1.  Notify all peers.
@@ -149,13 +156,15 @@ function addPeer(address, peerObj)
 	}
 }
 
-function removePeer(address) {
+function removePeer(connID) {
 	
 	// Remove the peer.
 	if ( clients[address] ) {
-		var peerID = clients[address].id;
-		var wasDeleted = delete clients[address];
-		console.log("websocket: close: %s connection closed for client %s wasDeleted: %s", UPDATE_ENDPOINT_PEERS, address, wasDeleted);	
+
+		var p = clients[connID];
+		var peerID = typeof p.id != 'undefined';
+		var wasDeleted = delete clients[connID];
+		console.log("websocket: close: %s connection closed for client %s wasDeleted: %s", UPDATE_ENDPOINT_PEERS, connID, wasDeleted);	
 
 		// Let other clients know.
 		for ( var addr in clients ) {
