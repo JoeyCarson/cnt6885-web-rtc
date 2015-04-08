@@ -31,7 +31,38 @@ function initSignalChannel()
 }
 
 function updateChannelMessage(event) {
-	console.log("socket response: " + JSON.parse(event.data).signalType);
+
+	var msgObj = JSON.parse(event.data);
+
+	if ( !msgObj || !msgObj.signalType ) {
+		
+		console.log("updateChannelMessage: malformed response!! %o", msgObj );
+
+	} else if ( msgObj.signalType == "welcome" ) {
+
+		console.log("updateChannelMessage: received welcome from host.");
+		handleWelcome(msgObj);
+	} else if ( msgObj.signalType == "peer_joined" ) {
+		console.log("updateChannelMessage: received peer_joined from host.");
+		if ( msgObj.peer.id == rtcPeer.description.id ) {
+			console.log("updateChannelMessage: peer_joined: received notification that I've been added to the room. " + msgObj.peer.id);
+		} else {
+			console.log("updateChannelMessage: peer_joined: peer %s is now online.", msgObj.peer.id);
+		}
+	}
+
+}
+
+function handleWelcome(msgObj)
+{
+	if ( msgObj.id ) {
+	
+		console.log("updateChannelMessage: welcome: received id from host. " + msgObj.id);
+		rtcPeer.description.id = msgObj.id;
+	
+	} else {
+		console.log("updateChannelMessage: malformed response.  no id.");
+	}
 }
 
 function userMediaFailed(error)
@@ -72,7 +103,7 @@ function createOfferSuccess(offer)
 	rtcPeer.conn.setLocalDescription(offer);
 
 	// Save the SDP description to the server message.
-	rtcPeer.serverMsg.sdp = offer;
+	rtcPeer.description.sdp = offer;
 }
 
 function createOfferFailure(domError)
@@ -85,22 +116,25 @@ function onIceCandidate(event)
 
 	if ( event.candidate ) {
 		console.log("onIceCandidate candidate");
-		rtcPeer.serverMsg.iceCandidates[rtcPeer.serverMsg.iceCandidates.length] = event.candidate;
-	} else if ( rtcPeer.serverMsg.iceCandidates.length > 0 ) {
+		rtcPeer.description.iceCandidates[rtcPeer.description.iceCandidates.length] = event.candidate;
+	} else if ( rtcPeer.description.iceCandidates.length > 0 ) {
 
 		// if we're receiving the null candidate, it appears that the stack has found all it can.
 		// this logic may not be sound, but it appears to be consistent for the time being.
 		// this is sort of the null termination of the list.
 		console.log("onIceCandidate candidate is null. dump candidates.");
-		for ( var i = 0; i < rtcPeer.serverMsg.iceCandidates.length; i++ ) {
-			var candidate = rtcPeer.serverMsg.iceCandidates[i];
+		for ( var i = 0; i < rtcPeer.description.iceCandidates.length; i++ ) {
+			var candidate = rtcPeer.description.iceCandidates[i];
 			console.log("candidate[%d] = %o", i, candidate);
 			rtcPeer.conn.addIceCandidate(candidate);
 		}
 
 		// Register back with the server.
-		var jsonStr = JSON.stringify( { peerDescription: rtcPeer.serverMsg } );
-		$.post("register", jsonStr, function(data, status){ console.log("Data: " + data + "\nStatus: " + status); });
+		var jsonStr = JSON.stringify( { signalType: "register", peerDescription: rtcPeer.description } );
+		rtcPeer.channel.send(jsonStr);
+
+		// Legacy...
+		//$.post("register", jsonStr, function(data, status){ console.log("Data: " + data + "\nStatus: " + status); });
 	} else {
 		console.log("can't register with server.  no ice candidates");
 	}
@@ -122,7 +156,7 @@ window.onbeforeunload = function() {
 var rtcPeer = { 
 				conn: null, 
 				channel: null,
-				serverMsg: {
+				description: {
 					status: "Vegas Baby",
 					sdp: null,
 					iceCandidates: []
