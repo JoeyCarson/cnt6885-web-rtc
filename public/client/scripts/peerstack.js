@@ -4,10 +4,6 @@ function peerInit(localVideoID)
 	rtcPeer.localVideoID = localVideoID;
 	initSignalChannel();
 	getUserMedia({audio:true, video:true}, gotUserMedia, userMediaFailed);
-
-			// // Register back with the server.
-		var jsonStr = JSON.stringify( { peerDescription: rtcPeer.serverMsg } );
-		$.post("register", jsonStr, function(data, status){ console.log("Data: " + data + "\nStatus: " + status); });
 }
 
 function gotUserMedia(media)
@@ -102,9 +98,9 @@ function onIceCandidate(event)
 			rtcPeer.conn.addIceCandidate(candidate);
 		}
 
-		// // Register back with the server.
-		// var jsonStr = JSON.stringify( { peerDescription: rtcPeer.serverMsg } );
-		// $.post("register", jsonStr, function(data, status){ console.log("Data: " + data + "\nStatus: " + status); });
+		// Register back with the server.
+		var jsonStr = JSON.stringify( { peerDescription: rtcPeer.serverMsg } );
+		$.post("register", jsonStr, function(data, status){ console.log("Data: " + data + "\nStatus: " + status); });
 	} else {
 		console.log("can't register with server.  no ice candidates");
 	}
