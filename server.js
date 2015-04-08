@@ -161,19 +161,25 @@ function removePeer(connID) {
 	// Remove the peer.
 	if ( clients[connID] ) {
 
-		var p = clients[connID];
-		var peerID = typeof p.id != 'undefined';
-		var wasDeleted = delete clients[connID];
-		console.log("websocket: close: %s connection closed for client %s wasDeleted: %s", UPDATE_ENDPOINT_PEERS, connID, wasDeleted);	
+		// If the client we're removing has only connected to the server, but not yet registered,
+		// then no other clients are aware of them.  We can simply remove them from tracking.
+		var pDesc = clients[connID].description;
 
-		// Let other clients know.
-		for ( var addr in clients ) {
-			var cli = clients[addr];
-			var sock = cli.socket;
-			if ( sock, id ) {
-				sendPeerRemoved(sock, peerID);
+		if ( pDesc ) {
+			// The client registered a peer description.  
+			// Let us notify the others that they're gone.
+			var peerID = pDesc.id;
+			for ( var addr in clients ) {
+				var cli = clients[addr];
+				var sock = cli.socket;
+				if ( sock.id ) {
+					sendPeerRemoved(sock, peerID);
+				}
 			}
 		}
+
+		var wasDeleted = delete clients[connID];
+		console.log("websocket: close: %s connection closed for client %s wasDeleted: %s", UPDATE_ENDPOINT_PEERS, connID, wasDeleted);	
 	}
 }
 

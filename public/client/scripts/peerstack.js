@@ -3,9 +3,7 @@ function peerInit(localVideoID)
 	console.log("starting peer");
 	rtcPeer.localVideoID = localVideoID;
 	initSignalChannel();
-	//getUserMedia({audio:true, video:true}, gotUserMedia, userMediaFailed);
-			var jsonStr = JSON.stringify( { signalType: "register", peerDescription: rtcPeer.description } );
-		rtcPeer.channel.send(jsonStr);
+	getUserMedia({audio:true, video:true}, gotUserMedia, userMediaFailed);
 
 }
 
@@ -134,8 +132,8 @@ function onIceCandidate(event)
 		}
 
 		// Register back with the server.
-		// var jsonStr = JSON.stringify( { signalType: "register", peerDescription: rtcPeer.description } );
-		// rtcPeer.channel.send(jsonStr);
+		var jsonStr = JSON.stringify( { signalType: "register", peerDescription: rtcPeer.description } );
+		rtcPeer.channel.send(jsonStr);
 
 		// Legacy...
 		//$.post("register", jsonStr, function(data, status){ console.log("Data: " + data + "\nStatus: " + status); });
