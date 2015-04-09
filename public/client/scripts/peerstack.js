@@ -24,9 +24,8 @@ function gotUserMedia(media)
 function initSignalChannel()
 {
 	rtcPeer.channel = new WebSocket( location.origin.replace(/^http/, 'ws') + "/peers" );
-	rtcPeer.channel.onmessage = updateChannelMessage;  
+	rtcPeer.channel.onmessage = updateChannelMessage;
 	rtcPeer.channel.onopen = function(event) { 
-		//rtcPeer.channel.send(JSON.stringify({bull:"shit"})); }
 		console.log("remote socket opened");
 	}
 }
@@ -95,6 +94,7 @@ function initConn(rtcConfig)
 	// 4.  Hook up various callbacks.
 	rtcPeer.conn.onicecandidate = onIceCandidate;
 	rtcPeer.conn.oniceconnectionstatechange = onIceConnStateChange;
+	rtcPeer.conn.onaddstream = gotRemoteStream;
 }
 
 function createOfferSuccess(offer)
@@ -145,6 +145,11 @@ function onIceCandidate(event)
 function onIceConnStateChange(event)
 {
 	console.log("onIceConnStateChange %s", rtcPeer.conn.iceConnectionState);
+}
+
+function gotRemoteStream(event)
+{
+	console.log("got remote stream");
 }
 
 // 

@@ -5,22 +5,38 @@
 		<script type="text/javascript" src="script/adapter.js"></script>
 		<script type="text/javascript" src="script/peerstack.js"></script>
 		<style type="text/css">
-			#localVideoBox {
-				background-color: orange;
-				text-align: right;
-			}
 
 			#localVid {
 				width: 200;
+				display: inline;
+			}
+
+			.main {
+				text-align: center;
+			}
+
+			.conversation {
+				text-align: center;
+				background-color: black;
+				padding: 20px;
+				color: white;
+			}
+
+			.peerVideo {
+				padding: 10px;
+				color: white;
 				display: inline-block;
 			}
 
 		</style>
 	</head>
-	<body onload="peerInit('localVid')">
-		<div id="localVideoBox">
-			<video id="localVid" autoplay muted/></video>
-			Me
+	<body onload="peerInit('localVid')" class="main">
+		<div class="conversation">
+			<div align="center">
+				<div>
+					<video id="localVid" class="peerVideo" autoplay muted/></video>
+				</div>
+			</div>
 		</div>
 	</body>
 </html>	
