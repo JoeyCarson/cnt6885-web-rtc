@@ -71,6 +71,7 @@ function updateChannelMessage(event) {
 		if ( msgObj.peer.id == rtcPeer.description.id ) {
 			console.log("updateChannelMessage: peer_joined: received notification that I've been added to the room. " + msgObj.peer.id);
 			console.log(msgObj);
+			addRemotePeer( msgObj.peer );
 		} else {
 			console.log("updateChannelMessage: peer_joined: peer %s is now online.", msgObj.peer.id);
 			console.log(msgObj);
