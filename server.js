@@ -3,8 +3,9 @@
 
 // Client <-> Host Protocol functions.  Move to a different file so that they can be shared.
 var C2H_SIGNAL_TYPE_REGISTER = "register";
+var C2H_SIGNAL_TYPE_HEARTBEAT = "heartbeat";
 
-var H2C_SIGNAL_WELCOME = "welcome";
+var H2C_SIGNAL_TYPE_WELCOME = "welcome";
 var H2C_SIGNAL_TYPE_ERROR = "error";
 var H2C_SIGNAL_TYPE_PEER_ADDED = "peer_joined";
 var H2C_SIGNAL_TYPE_PEER_LEFT = "peer_left";
@@ -19,7 +20,7 @@ function createHostMsg(type)
 {
 	var msg = { signalType: type };
 	
-	if ( type == H2C_SIGNAL_WELCOME ) {
+	if ( type == H2C_SIGNAL_TYPE_WELCOME ) {
 		// Since we're sending a welcome message, we need to provide a list
 		// of currently connected clients.
 		msg.peers = {};
@@ -87,9 +88,7 @@ var wss = new WebSocketServer( { server: httpServer, path: UPDATE_ENDPOINT_PEERS
 wss.on("connection", function(webSocket) {
 
 	// 1.  Associate the socket with the remote address it came from.
-	var remoteAddress = webSocket._socket.remoteAddress;
-	var remotePort = webSocket._socket.remotePort;
-	var clientConnID = remoteAddress + ":" + remotePort;
+	var clientConnID = buildConnID(webSocket);
 
 	var exists = clients[clientConnID] != null;
 	if ( exists ) {
@@ -116,6 +115,7 @@ wss.on("connection", function(webSocket) {
 function processMessage(socket, data, flags)
 {
 	var msg = JSON.parse(data);
+	var connID = buildConnID(socket);
 	if ( !msg.signalType ) {
 
 		var msg = createHostMsg( H2C_SIGNAL_TYPE_ERROR );
@@ -124,6 +124,10 @@ function processMessage(socket, data, flags)
 
 	} else if ( msg.signalType == C2H_SIGNAL_TYPE_REGISTER ) {
 		handleRegistration(socket, msg);
+	} else if ( msg.signalType == C2H_SIGNAL_TYPE_HEARTBEAT ) {
+		console.log("processMessage: received heartbeat from client: %s", connID);
+	} else {
+		console.log("received malformed signal from : %s", connID);
 	}
 }
 
@@ -135,14 +139,12 @@ function handleRegistration(webSocket, obj)
 	peer.id = uid;
 
 	// First respond to the caller with a welcome message.
-	var msg = createHostMsg( H2C_SIGNAL_WELCOME );
+	var msg = createHostMsg( H2C_SIGNAL_TYPE_WELCOME );
 	msg.id = uid;
 	webSocket.send( JSON.stringify( msg ) );
 
 	// Next, add the peer into the list.
-	var remoteAddress = webSocket._socket.remoteAddress;
-	var remotePort = webSocket._socket.remotePort;
-	var clientConnID = remoteAddress + ":" + remotePort;
+	var clientConnID = buildConnID(webSocket);
 
 	addPeer(clientConnID, peer);
 }
@@ -213,6 +215,14 @@ function sendPeerRemoved(targetSocket, peerID)
 	targetSocket.send( JSON.stringify( msg ) );
 }
 
+function buildConnID(webSocket)
+{
+	var remoteAddress = webSocket._socket.remoteAddress;
+	var remotePort = webSocket._socket.remotePort;
+	var clientConnID = remoteAddress + ":" + remotePort;
+
+	return clientConnID;	
+}
 
 
 

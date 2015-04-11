@@ -1,24 +1,21 @@
-function peerInit(localVideoID)
+
+
+var C2H_SIGNAL_TYPE_REGISTER = "register";
+var C2H_SIGNAL_TYPE_HEARTBEAT = "heartbeat";
+
+function createClientMsg(type)
 {
-	console.log("starting peer");
-	rtcPeer.localVideoID = localVideoID;
-	initSignalChannel();
-	getUserMedia({audio:true, video:true}, gotUserMedia, userMediaFailed);
+	var msg = { signalType: type };
+	if ( type == C2H_SIGNAL_TYPE_REGISTER ) {
+		msg.peerDescription = rtcPeer.description;
+	} else if ( type == C2H_SIGNAL_TYPE_HEARTBEAT ) {
 
-}
+	} else {
+		console.log("createClientMsg: invalid type given : %s", type);
+		msg = {};
+	}
 
-function gotUserMedia(media)
-{
-	console.log("user media success");
-	console.log("querying for ICE servers");
-	
-	rtcPeer.localStream = media;
-	var url = URL.createObjectURL(media);
-
-	document.getElementById(rtcPeer.localVideoID).src = url;
-
-	// Find some TURN servers to help out if we're behind a corporate network.
-	window.turnserversDotComAPI.iceServers(onIceServersReady);
+	return msg;
 }
 
 function initSignalChannel()
@@ -27,11 +24,20 @@ function initSignalChannel()
 	rtcPeer.channel.onmessage = updateChannelMessage;
 	rtcPeer.channel.onopen = function(event) { 
 		console.log("remote socket opened");
+		// We need to consistently send a heartbeat to keep the connection open.
+		setInterval(sendHeartbeat, 40000);
 	}
 	rtcPeer.channel.onclose = function(event) {
 		console.log("host closed remote socket.");
 	}
 }
+
+function sendHeartbeat()
+{
+	console.log("sendHeartbeat");
+	rtcPeer.channel.send( JSON.stringify( createClientMsg( C2H_SIGNAL_TYPE_HEARTBEAT ) ) );
+}
+
 
 function updateChannelMessage(event) {
 
@@ -76,7 +82,7 @@ function createPeerUIObj(peerObj)
 
 		a.append("peer " + peerObj.id);
 		ui.append(a);
-		ui.click(function(event) { console.log("asdasdasdasd");});
+		ui.click(function(event) { console.log("clicked");});
 	}
 
 	return ui;
@@ -99,6 +105,30 @@ function handleWelcome(msgObj)
 	}
 }
 
+function peerInit(localVideoID)
+{
+	console.log("starting peer");
+	rtcPeer.localVideoID = localVideoID;
+	initSignalChannel();
+	getUserMedia({audio:true, video:true}, gotUserMedia, userMediaFailed);
+
+}
+
+function gotUserMedia(media)
+{
+	console.log("user media success");
+	console.log("querying for ICE servers");
+	
+	rtcPeer.localStream = media;
+	var url = URL.createObjectURL(media);
+
+	document.getElementById(rtcPeer.localVideoID).src = url;
+
+	// Find some TURN servers to help out if we're behind a corporate network.
+	//window.turnserversDotComAPI.iceServers(onIceServersReady);
+	onIceServersReady(null); // turn servers domain is not resolved.  they must be down?
+}
+
 function userMediaFailed(error)
 {
 	console.log("user media failed");
@@ -106,6 +136,11 @@ function userMediaFailed(error)
 
 function onIceServersReady(data)
 {
+
+	if ( !data ) {
+		data = [];
+	}
+
 	console.log("onIceServersReady: %o", data);
 
 	data[data.length] = {url: "stun:stun.stunprotocol.org:3478"};
@@ -165,7 +200,7 @@ function onIceCandidate(event)
 		}
 
 		// Register back with the server.
-		var jsonStr = JSON.stringify( { signalType: "register", peerDescription: rtcPeer.description } );
+		var jsonStr = JSON.stringify( createClientMsg( C2H_SIGNAL_TYPE_REGISTER ) );
 		rtcPeer.channel.send(jsonStr);
 
 		// Legacy...
