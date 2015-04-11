@@ -20,10 +20,19 @@ function createClientMsg(type)
 
 function initSignalChannel()
 {
+	var attemptingReconnect = false;
 	rtcPeer.channel = new WebSocket( location.origin.replace(/^http/, 'ws') + "/peers" );
 	rtcPeer.channel.onmessage = updateChannelMessage;
 	rtcPeer.channel.onopen = function(event) { 
 		console.log("remote socket opened");
+
+		if ( attemptingReconnect ) {
+			attemptingReconnect = false;
+			// Register back with the server.
+			var jsonStr = JSON.stringify( createClientMsg( C2H_SIGNAL_TYPE_REGISTER ) );
+			rtcPeer.channel.send(jsonStr);
+		}
+
 		// We need to consistently send a heartbeat to keep the connection open.
 		rtcPeer.channelIntervalID = setInterval(sendHeartbeat, 40000);
 	}
@@ -32,6 +41,7 @@ function initSignalChannel()
 		if ( rtcPeer.channelIntervalID >= 0 ) {
 			clearInterval(rtcPeer.channelIntervalID);
 		}
+		attemptingReconnect = true;
 		initSignalChannel();
 	}
 }
