@@ -85,6 +85,10 @@ function addRemotePeer(peerObj)
 	remotePeers[peerObj.id] = peerObj;
 	var ui = createPeerUIObj(peerObj);
 	$("#connectedPeerList").append( ui );
+	ui.click(function(event) { 
+		var index = $("#connectedPeerList").children().inArray(ui);
+		console.log("index is " + index);
+	});
 }
 
 function createPeerUIObj(peerObj)
@@ -96,7 +100,6 @@ function createPeerUIObj(peerObj)
 
 		a.append("peer " + peerObj.id);
 		ui.append(a);
-		ui.click(function(event) { console.log("clicked");});
 	}
 
 	return ui;
@@ -237,7 +240,9 @@ function gotRemoteStream(event)
 // 
 window.onbeforeunload = function() {
 	console.log("user is closing");
-    websocket.onclose = function () {}; // disable onclose handler first
+	// disable onclose handler first to prevent
+	// potential reconnect attempts.
+    websocket.onclose = function () {}; 
     rtcPeer.channel.close()
 };
 
