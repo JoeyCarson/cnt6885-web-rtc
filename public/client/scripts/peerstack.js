@@ -21,6 +21,12 @@ function createClientMsg(type)
 function initSignalChannel()
 {
 	var attemptingReconnect = false;
+
+	if ( !location.origin ) {
+		console.log("replacing window.origin");
+		location.origin = location.protocol + "//" + location.host;
+	}
+
 	rtcPeer.channel = new WebSocket( location.origin.replace(/^http/, 'ws') + "/peers" );
 	rtcPeer.channel.onmessage = updateChannelMessage;
 	rtcPeer.channel.onopen = function(event) { 
@@ -67,16 +73,21 @@ function updateChannelMessage(event) {
 		handleWelcome(msgObj);
 
 	} else if ( msgObj.signalType == "peer_joined" ) {
+
 		console.log("updateChannelMessage: received peer_joined from host.");
+
 		if ( msgObj.peer.id == rtcPeer.description.id ) {
 			console.log("updateChannelMessage: peer_joined: received notification that I've been added to the room. " + msgObj.peer.id);
 			console.log(msgObj);
-			addRemotePeer( msgObj.peer );
+			// add self to UI when testing UI interaction
+			// without another connected peer.
+			//addRemotePeer( msgObj.peer );
 		} else {
 			console.log("updateChannelMessage: peer_joined: peer %s is now online.", msgObj.peer.id);
 			console.log(msgObj);
 			addRemotePeer( msgObj.peer );
 		}
+
 	}
 
 }
@@ -87,8 +98,11 @@ function addRemotePeer(peerObj)
 	var ui = createPeerUIObj(peerObj);
 	$("#connectedPeerList").append( ui );
 	ui.click(function(event) { 
-		var index = $.inArray(ui, $("#connectedPeerList").children().toArray() );
-		console.log("index is " + index);
+		var id = $(ui).data("peer_id");
+		if ( id ) {
+			var p = remotePeers[id];
+			console.log("clicked peer is %o", p); 
+		}
 	});
 }
 
@@ -100,6 +114,8 @@ function createPeerUIObj(peerObj)
 		var a = $("<a></a>");
 
 		a.append("peer " + peerObj.id);
+
+		ui.data("peer_id", peerObj.id);
 		ui.append(a);
 	}
 
