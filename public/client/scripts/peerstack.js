@@ -25,10 +25,14 @@ function initSignalChannel()
 	rtcPeer.channel.onopen = function(event) { 
 		console.log("remote socket opened");
 		// We need to consistently send a heartbeat to keep the connection open.
-		setInterval(sendHeartbeat, 40000);
+		rtcPeer.channelIntervalID = setInterval(sendHeartbeat, 40000);
 	}
 	rtcPeer.channel.onclose = function(event) {
 		console.log("host closed remote socket.");
+		if ( rtcPeer.channelIntervalID >= 0 ) {
+			clearInterval(rtcPeer.channelIntervalID);
+		}
+		initSignalChannel();
 	}
 }
 
@@ -231,6 +235,7 @@ window.onbeforeunload = function() {
 var rtcPeer = { 
 				conn: null, 
 				channel: null,
+				channelIntervalID: -1,
 				description: {
 					status: "Vegas Baby",
 					sdp: null,
