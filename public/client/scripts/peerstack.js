@@ -86,7 +86,7 @@ function addRemotePeer(peerObj)
 	var ui = createPeerUIObj(peerObj);
 	$("#connectedPeerList").append( ui );
 	ui.click(function(event) { 
-		var index = $("#connectedPeerList").children().inArray(ui);
+		var index = $.inArray(ui, $("#connectedPeerList").children() );
 		console.log("index is " + index);
 	});
 }
