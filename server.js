@@ -17,7 +17,22 @@ var UPDATE_ENDPOINT_PEERS = "/peers";
 // building a signal message to send to a peer.
 function createHostMsg(type)
 {
-	return { signalType: type };
+	var msg = { signalType: type };
+	
+	if ( type == H2C_SIGNAL_WELCOME ) {
+		// Since we're sending a welcome message, we need to provide a list
+		// of currently connected clients.
+		msg.peers = {};
+		for ( var addr in clients ) {
+			console.log("addr " + addr);
+			var c = clients[addr].description;
+			if ( c && c.id ) {
+				msg.peers[c.id] = c;
+			}
+		}
+	}
+
+	return msg;
 }
 
 
@@ -115,7 +130,7 @@ function processMessage(socket, data, flags)
 function handleRegistration(webSocket, obj)
 {
 	// Create an ID for the peer.  Just use a timestamp for now.
-	var uid = new Date().getTime();
+	var uid = "" + new Date().getTime();
 	var peer = obj.peerDescription;
 	peer.id = uid;
 
@@ -172,7 +187,7 @@ function removePeer(connID) {
 			for ( var addr in clients ) {
 				var cli = clients[addr];
 				var sock = cli.socket;
-				if ( sock.id ) {
+				if ( cli.id ) {
 					sendPeerRemoved(sock, peerID);
 				}
 			}

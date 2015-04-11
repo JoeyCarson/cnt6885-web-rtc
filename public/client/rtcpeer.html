@@ -28,13 +28,43 @@
 				display: inline-block;
 			}
 
+			#peerBox {
+				width: 200px;
+				padding: 0;
+			}
+
+			#connectedPeerList {
+				background-color: white;
+				padding: 0;
+			}
+
+			#connectedPeerList li {
+				color: black;
+ 				background-color: white;
+				list-style-type: none;
+				padding: 10px;
+				border: 1px solid red;
+			}
+
+			#connectedPeerList li:hover {
+				list-style-type: none;
+				background-color: #60DFE5;
+				color: black;
+				border: 1px solid white;
+			}
+
 		</style>
 	</head>
 	<body onload="peerInit('localVid')" class="main">
 		<div class="conversation">
 			<div align="center">
-				<div>
+				<div id="peerVideos">
 					<video id="localVid" class="peerVideo" autoplay muted/></video>
+				</div>
+				<h2>dddd</h2>
+				<div id="peerBox" align="center">
+					<ul id="connectedPeerList">
+					</ul>
 				</div>
 			</div>
 		</div>

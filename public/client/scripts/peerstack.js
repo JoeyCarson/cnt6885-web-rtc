@@ -28,6 +28,9 @@ function initSignalChannel()
 	rtcPeer.channel.onopen = function(event) { 
 		console.log("remote socket opened");
 	}
+	rtcPeer.channel.onclose = function(event) {
+		console.log("host closed remote socket.");
+	}
 }
 
 function updateChannelMessage(event) {
@@ -47,11 +50,36 @@ function updateChannelMessage(event) {
 		console.log("updateChannelMessage: received peer_joined from host.");
 		if ( msgObj.peer.id == rtcPeer.description.id ) {
 			console.log("updateChannelMessage: peer_joined: received notification that I've been added to the room. " + msgObj.peer.id);
+			console.log(msgObj);
 		} else {
 			console.log("updateChannelMessage: peer_joined: peer %s is now online.", msgObj.peer.id);
+			console.log(msgObj);
+			addRemotePeer( msgObj.peer );
 		}
 	}
 
+}
+
+function addRemotePeer(peerObj)
+{
+	remotePeers[peerObj.id] = peerObj;
+	var ui = createPeerUIObj(peerObj);
+	$("#connectedPeerList").append( ui );
+}
+
+function createPeerUIObj(peerObj)
+{
+	var ui = null;
+	if ( peerObj ) {
+		ui = $("<li></li>");
+		var a = $("<a></a>");
+
+		a.append("peer " + peerObj.id);
+		ui.append(a);
+		ui.click(function(event) { console.log("asdasdasdasd");});
+	}
+
+	return ui;
 }
 
 function handleWelcome(msgObj)
@@ -59,7 +87,12 @@ function handleWelcome(msgObj)
 	if ( msgObj.id ) {
 	
 		console.log("updateChannelMessage: welcome: received id from host. " + msgObj.id);
+		console.log(msgObj);
 		rtcPeer.description.id = msgObj.id;
+
+		for ( var p in msgObj.peers ) {
+			addRemotePeer(msgObj.peers[p]);
+		}
 	
 	} else {
 		console.log("updateChannelMessage: malformed response.  no id.");
@@ -170,7 +203,8 @@ var rtcPeer = {
 				}
 			};
 
-
+// Object for tracking remote peers.
+var remotePeers = {  };
 
 
 
