@@ -4,11 +4,13 @@
 // Client <-> Host Protocol functions.  Move to a different file so that they can be shared.
 var C2H_SIGNAL_TYPE_REGISTER = "register";
 var C2H_SIGNAL_TYPE_HEARTBEAT = "heartbeat";
+var C2H_SIGNAL_TYPE_INVITE = "invite";
 
 var H2C_SIGNAL_TYPE_WELCOME = "welcome";
 var H2C_SIGNAL_TYPE_ERROR = "error";
 var H2C_SIGNAL_TYPE_PEER_ADDED = "peer_joined";
 var H2C_SIGNAL_TYPE_PEER_LEFT = "peer_left";
+var H2C_SIGNAL_TYPE_INVITE = "conversation_invite";
 
 // Update channel endpoint names.
 var UPDATE_ENDPOINT_PEERS = "/peers";
@@ -123,12 +125,65 @@ function processMessage(socket, data, flags)
 		socket.send( JSON.stringify( msg ) );
 
 	} else if ( msg.signalType == C2H_SIGNAL_TYPE_REGISTER ) {
+
 		handleRegistration(socket, msg);
+
+	} else if ( msg.signalType == C2H_SIGNAL_TYPE_INVITE ) {
+
+		handleSendInvite(socket, msg);
+
 	} else if ( msg.signalType == C2H_SIGNAL_TYPE_HEARTBEAT ) {
+
 		console.log("processMessage: received heartbeat from client: %s", connID);
+
 	} else {
+
 		console.log("received malformed signal from : %s", connID);
+
 	}
+}
+
+function handleSendInvite(webSocket, obj) 
+{
+	var connID = buildConnID(webSocket);
+
+	if ( connID != "" ) {
+
+		console.log("handleSendInvite: connID: %s", connID);
+		
+		var callerPeer = clients[connID];
+		var receierPeer = findPeerByID( obj.invitee );
+
+		if ( receierPeer ) {
+			console.log("handleSendInvite: caller %s initiating a call to %s", callerPeer.description.id, receierPeer.description.id);
+			
+			var msg = createHostMsg( H2C_SIGNAL_TYPE_INVITE );
+			msg.peer = callerPeer.description.id;
+			receierPeer.socket.send( JSON.stringify( msg ) );
+		}
+
+
+	}
+
+		// var response = createHostMsg( H2C_SIGNAL_TYPE_ERROR );
+		// response.errStr = "invite_malformed: ba";
+		// webSocket.send(  );
+}
+
+function findPeerByID(peerID)
+{
+	for ( addr in clients ) {
+		var c = clients[addr];
+		//console.log("c: %s %o", addr, c);
+		if ( c && c.description && c.description.id == peerID ) {
+			console.log("findPeerByID: found peerID: %s at address %s", peerID, addr);
+			return c;
+		}
+	}
+
+	console.log("findPeerByID: unable to locate client for peerID: %s", peerID);
+
+	return null;
 }
 
 function handleRegistration(webSocket, obj)

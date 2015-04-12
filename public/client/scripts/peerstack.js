@@ -2,6 +2,13 @@
 
 var C2H_SIGNAL_TYPE_REGISTER = "register";
 var C2H_SIGNAL_TYPE_HEARTBEAT = "heartbeat";
+var C2H_SIGNAL_TYPE_INVITE = "invite";
+
+var H2C_SIGNAL_TYPE_INVITE = "conversation_invite";
+var H2C_SIGNAL_TYPE_WELCOME = "welcome";
+var H2C_SIGNAL_TYPE_ERROR = "error";
+var H2C_SIGNAL_TYPE_PEER_ADDED = "peer_joined";
+var H2C_SIGNAL_TYPE_PEER_LEFT = "peer_left";
 
 function createClientMsg(type)
 {
@@ -9,6 +16,8 @@ function createClientMsg(type)
 	if ( type == C2H_SIGNAL_TYPE_REGISTER ) {
 		msg.peerDescription = rtcPeer.description;
 	} else if ( type == C2H_SIGNAL_TYPE_HEARTBEAT ) {
+
+	} else if ( type == C2H_SIGNAL_TYPE_INVITE ) { 
 
 	} else {
 		console.log("createClientMsg: invalid type given : %s", type);
@@ -88,6 +97,21 @@ function updateChannelMessage(event) {
 			addRemotePeer( msgObj.peer );
 		}
 
+	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_INVITE ) {
+
+		if ( remotePeers[msgObj.peer] ) {
+			console.log("updateChannelMessage: conversation_invite from %s", msgObj.peer);
+
+			for ( var i = 0; i < remotePeers[msgObj.peer].iceCandidates.length; i++ ) 
+			{
+				rtcPeer.conn.addIceCandidate( new RTCIceCandidate( remotePeers[msgObj.peer].iceCandidates[i] ) );
+			}
+
+			rtcPeer.conn.setRemoteDescription(new RTCSessionDescription(remotePeers[msgObj.peer].sdp));
+			rtcPeer.conn.createAnswer(createOfferSuccess);
+		} else {
+			console.log("updateChannelMessage: conversation_invite couldn't resolve %s", msgObj.peer);
+		}
 	}
 
 }
@@ -101,9 +125,27 @@ function addRemotePeer(peerObj)
 		var id = $(ui).data("peer_id");
 		if ( id ) {
 			var p = remotePeers[id];
-			console.log("clicked peer is %o", p); 
+			console.log("selected peer %o", p);
+
+			// Client sets himself up by adding all of the peer's ICE candidates and setting the
+			// peer's sdp as his own remote description.  This leaves the peer needing to create
+			// answer and set it as his remote description, as he is not the initiator, he is the
+			// the answerer.  We need to tell the server to ping him with our invite.
+			for ( var i = 0; i < p.iceCandidates.length; i++ ) {
+				rtcPeer.conn.addIceCandidate( new RTCIceCandidate( p.iceCandidates[i] ) );
+			}
+
+			rtcPeer.conn.setRemoteDescription( new RTCSessionDescription( p.sdp ) );
+			sendInviteToPeer(p);
 		}
 	});
+}
+
+function sendInviteToPeer(remotePeer) {
+
+	var msg = createClientMsg( C2H_SIGNAL_TYPE_INVITE );
+	msg.invitee = remotePeer.id;
+	rtcPeer.channel.send( JSON.stringify( msg ) );
 }
 
 function createPeerUIObj(peerObj)
@@ -230,7 +272,7 @@ function onIceCandidate(event)
 		for ( var i = 0; i < rtcPeer.description.iceCandidates.length; i++ ) {
 			var candidate = rtcPeer.description.iceCandidates[i];
 			console.log("candidate[%d] = %o", i, candidate);
-			rtcPeer.conn.addIceCandidate(candidate);
+			//rtcPeer.conn.addIceCandidate(candidate);
 		}
 
 		// Register back with the server.
