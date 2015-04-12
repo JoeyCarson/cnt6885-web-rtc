@@ -99,7 +99,7 @@ wss.on("connection", function(webSocket) {
 	if ( exists ) {
 		// This probably should never happen.  Before when we were using ajax to register, it was possible.  Now everything
 		// is all websocket.  Registration requires initial connection first.
-		console.log("[LEGACY PATH!] socket server connection: associating new connection from %s with registered peer.", clientConnID);
+		console.log("[LEGACY PATH] socket server connection: associating new connection from %s with registered peer.", clientConnID);
 		clients[clientConnID].socket = webSocket;
 	} else {
 		console.log("socket server connection: associating new connection from %s with unregistered peer.", clientConnID);
@@ -272,11 +272,7 @@ function sendPeerRemoved(targetSocket, peerID)
 
 function buildConnID(webSocket)
 {
-	var remoteAddress = webSocket._socket.remoteAddress;
-	var remotePort = webSocket._socket.remotePort;
-	var clientConnID = remoteAddress + ":" + remotePort;
-
-	return clientConnID;	
+	return webSocket._socket.remoteAddress + ":" + webSocket._socket.remotePort;
 }
 
 
