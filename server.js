@@ -1,5 +1,6 @@
 
-
+// Changes to implement.
+// 1.  Create a sendObject(webSocket, obj) - Should call JSON.stringify() on object and call webSocket.send(jsonStr).
 
 // Client <-> Host Protocol functions.  Move to a different file so that they can be shared.
 var C2H_SIGNAL_TYPE_REGISTER = "register";
@@ -80,13 +81,15 @@ app.get('/script/:name', publicScriptRouter);
 // app will handle routing and multiplexing of incoming requests to different
 // route middleware handlers.
 var http = require('http');
-var WebSocketServer = require("ws").Server
 var httpServer = http.createServer(app);
 httpServer.listen( app.get('port') );
 
 // 3.  Create one of these for all socket endpoints.
+var WebSocketServer = require("ws").Server
 var wss = new WebSocketServer( { server: httpServer, path: UPDATE_ENDPOINT_PEERS } );
 
+// Hook up callback for socket server connection.  When we have a connection, we will have a unique socket.
+// Hook up callbacks to that unqiue socket.
 wss.on("connection", function(webSocket) {
 
 	// 1.  Associate the socket with the remote address it came from.
@@ -94,12 +97,14 @@ wss.on("connection", function(webSocket) {
 
 	var exists = clients[clientConnID] != null;
 	if ( exists ) {
-		console.log("socket server connection: associating new connection from %s with registered peer.", clientConnID);
+		// This probably should never happen.  Before when we were using ajax to register, it was possible.  Now everything
+		// is all websocket.  Registration requires initial connection first.
+		console.log("[LEGACY PATH!] socket server connection: associating new connection from %s with registered peer.", clientConnID);
 		clients[clientConnID].socket = webSocket;
 	} else {
 		console.log("socket server connection: associating new connection from %s with unregistered peer.", clientConnID);
 		clients[clientConnID] = { description: null, socket: webSocket };
-	}	
+	}
 
 	// 2.  Hook up handlers for communication over this particular socket.
 	webSocket.on("message", function(data, flags) {
@@ -149,25 +154,19 @@ function handleSendInvite(webSocket, obj)
 
 	if ( connID != "" ) {
 
-		console.log("handleSendInvite: connID: %s", connID);
+		//console.log("handleSendInvite: connID: %s", connID);
 		
 		var callerPeer = clients[connID];
-		var receierPeer = findPeerByID( obj.invitee );
+		var receiverPeer = findPeerByID( obj.invitee );
 
-		if ( receierPeer ) {
-			console.log("handleSendInvite: caller %s initiating a call to %s", callerPeer.description.id, receierPeer.description.id);
+		if ( receiverPeer ) {
+			console.log("handleSendInvite: caller %s initiating a call to %s", callerPeer.description.id, receiverPeer.description.id);
 			
 			var msg = createHostMsg( H2C_SIGNAL_TYPE_INVITE );
 			msg.peer = callerPeer.description.id;
-			receierPeer.socket.send( JSON.stringify( msg ) );
+			receiverPeer.socket.send( JSON.stringify( msg ) );
 		}
-
-
 	}
-
-		// var response = createHostMsg( H2C_SIGNAL_TYPE_ERROR );
-		// response.errStr = "invite_malformed: ba";
-		// webSocket.send(  );
 }
 
 function findPeerByID(peerID)
@@ -182,7 +181,6 @@ function findPeerByID(peerID)
 	}
 
 	console.log("findPeerByID: unable to locate client for peerID: %s", peerID);
-
 	return null;
 }
 
@@ -200,7 +198,6 @@ function handleRegistration(webSocket, obj)
 
 	// Next, add the peer into the list.
 	var clientConnID = buildConnID(webSocket);
-
 	addPeer(clientConnID, peer);
 }
 
@@ -212,7 +209,10 @@ function addPeer(connID, peerObj)
 		console.log("addPeer: updating peer description at %s", connID);
 		clients[connID].description = peerObj;	
 	} else {
-		console.log("addPeer: adding new peer description at %s", connID);
+		// This is another path that probably shouldn't ever occur.  This was plausible when
+		// ajax was being used to register but all updates went over web socket.  The client
+		// should always exist if we're calling addPeer.
+		console.log("[LEGACY PATH] addPeer: adding new peer description at %s", connID);
 		clients[connID] = { description: peerObj, socket: null };
 	}
 
@@ -223,7 +223,7 @@ function addPeer(connID, peerObj)
 		if ( socket ) {
 			sendPeerAdded(socket, peerObj);
 		} else if ( c.description != peerObj ) {
-			console.log("BAD!!  NULL SOCKET WHEN TRYING TO SEND UPDATE.");
+			console.log("[BAD] NULL SOCKET WHEN TRYING TO SEND UPDATE.");
 		}
 	}
 }

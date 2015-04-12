@@ -16,9 +16,9 @@ function createClientMsg(type)
 	if ( type == C2H_SIGNAL_TYPE_REGISTER ) {
 		msg.peerDescription = rtcPeer.description;
 	} else if ( type == C2H_SIGNAL_TYPE_HEARTBEAT ) {
-
+		// do we need anything here?
 	} else if ( type == C2H_SIGNAL_TYPE_INVITE ) { 
-
+		// do we need anything here?
 	} else {
 		console.log("createClientMsg: invalid type given : %s", type);
 		msg = {};
@@ -29,8 +29,9 @@ function createClientMsg(type)
 
 function initSignalChannel()
 {
-	var attemptingReconnect = false;
 
+	// Replace this for FireFox.  
+	// TODO: Perhaps this should go into adapter.js
 	if ( !location.origin ) {
 		console.log("replacing window.origin");
 		location.origin = location.protocol + "//" + location.host;
@@ -41,13 +42,6 @@ function initSignalChannel()
 	rtcPeer.channel.onopen = function(event) { 
 		console.log("remote socket opened");
 
-		if ( attemptingReconnect ) {
-			attemptingReconnect = false;
-			// Register back with the server.
-			var jsonStr = JSON.stringify( createClientMsg( C2H_SIGNAL_TYPE_REGISTER ) );
-			rtcPeer.channel.send(jsonStr);
-		}
-
 		// We need to consistently send a heartbeat to keep the connection open.
 		rtcPeer.channelIntervalID = setInterval(sendHeartbeat, 40000);
 	}
@@ -56,8 +50,6 @@ function initSignalChannel()
 		if ( rtcPeer.channelIntervalID >= 0 ) {
 			clearInterval(rtcPeer.channelIntervalID);
 		}
-		attemptingReconnect = true;
-		initSignalChannel();
 	}
 }
 
@@ -112,6 +104,9 @@ function updateChannelMessage(event) {
 		} else {
 			console.log("updateChannelMessage: conversation_invite couldn't resolve %s", msgObj.peer);
 		}
+	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_ERROR ) {
+		// TODO: dump better error messages in here.
+		console.log("updateChannelMessage: received error: ");	
 	}
 
 }
