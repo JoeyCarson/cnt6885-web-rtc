@@ -28,7 +28,7 @@ function createHostMsg(type)
 		// of currently connected clients.
 		msg.peers = {};
 		for ( var addr in clients ) {
-			console.log("addr " + addr);
+			//console.log("addr " + addr);
 			var c = clients[addr].description;
 			if ( c && c.id ) {
 				msg.peers[c.id] = c;
@@ -125,9 +125,7 @@ function processMessage(socket, data, flags)
 	var connID = buildConnID(socket);
 	if ( !msg.signalType ) {
 
-		var msg = createHostMsg( H2C_SIGNAL_TYPE_ERROR );
-		msg.errStr = "message_malformed";
-		socket.send( JSON.stringify( msg ) );
+		handleBadPDU(socket);
 
 	} else if ( msg.signalType == C2H_SIGNAL_TYPE_REGISTER ) {
 
@@ -144,8 +142,15 @@ function processMessage(socket, data, flags)
 	} else {
 
 		console.log("received malformed signal from : %s", connID);
-
+		handleBadPDU(socket);
 	}
+}
+
+function handleBadPDU(webSocket)
+{
+	var msg = createHostMsg( H2C_SIGNAL_TYPE_ERROR );
+	msg.errStr = "message_malformed";
+	webSocket.send( JSON.stringify( msg ) );	
 }
 
 function handleSendInvite(webSocket, obj) 

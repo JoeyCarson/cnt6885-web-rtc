@@ -205,10 +205,15 @@ function onIceServersReady(data)
 		data = [];
 	}
 
+	// We've got the necessary ICE servers.  We can now
+	// feel comfortable about creating the RTCPeerConnection.
 	console.log("onIceServersReady: %o", data);
 
+	// Remember to add in the the public stun server to the TURN
+	// server list we got from the turnservers web service.
 	data[data.length] = {url: "stun:stun.stunprotocol.org:3478"};
 
+	// Initialize the connection.
 	initConn(data);
 }
 
@@ -217,10 +222,11 @@ function initConn(rtcConfig)
 	// 1.  Create the RTCPeerConnection
 	rtcPeer.conn = new RTCPeerConnection({ iceServers: rtcConfig });
 
-		// 2.  Add the local stream.
-		rtcPeer.conn.addStream(rtcPeer.localStream);
+	// 2.  Add the local stream.
+	rtcPeer.conn.addStream(rtcPeer.localStream);
 
 	// 3.  Create your offer.
+	// TODO: Refactor for new initialization strategy.
 	rtcPeer.conn.createOffer(createOfferSuccess, createOfferFailure);
 
 	// 4.  Hook up various callbacks.
