@@ -30,13 +30,6 @@ function createClientMsg(type)
 function initSignalChannel()
 {
 
-	// Replace this for FireFox.  
-	// TODO: Perhaps this should go into adapter.js
-	if ( !location.origin ) {
-		console.log("replacing window.origin");
-		location.origin = location.protocol + "//" + location.host;
-	}
-
 	rtcPeer.channel = new WebSocket( location.origin.replace(/^http/, 'ws') + "/peers" );
 	rtcPeer.channel.onmessage = updateChannelMessage;
 	rtcPeer.channel.onopen = function(event) { 
@@ -224,8 +217,8 @@ function initConn(rtcConfig)
 	// 1.  Create the RTCPeerConnection
 	rtcPeer.conn = new RTCPeerConnection({ iceServers: rtcConfig });
 
-	// 2.  Add the local stream.
-	rtcPeer.conn.addStream(rtcPeer.localStream);
+		// 2.  Add the local stream.
+		rtcPeer.conn.addStream(rtcPeer.localStream);
 
 	// 3.  Create your offer.
 	rtcPeer.conn.createOffer(createOfferSuccess, createOfferFailure);

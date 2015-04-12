@@ -51,6 +51,14 @@ if (navigator.mozGetUserMedia) {
   MediaStream.prototype.getAudioTracks = function() {
     return [];
   };
+
+  // Replace this for FireFox.  
+  // TODO: Perhaps this should go into adapter.js
+  if ( !location.origin ) {
+    console.log("Replacing window.location.origin");
+    location.origin = location.protocol + "//" + location.host;
+  }
+
 } else if (navigator.webkitGetUserMedia) {
   console.log("This appears to be Chrome");
 
