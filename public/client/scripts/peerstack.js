@@ -311,6 +311,9 @@ function onIceConnStateChange(event)
 function gotRemoteStream(event)
 {
 	console.log("got remote stream");
+	var remoteVideo = $("<video class='peerVideo' autoplay muted/></video>");
+	remoteVideo.src = URL.createObjectURL(event.stream);
+	$("#peerVideos").append(remoteVideo);
 }
 
 // 
