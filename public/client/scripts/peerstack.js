@@ -277,7 +277,7 @@ function createOfferSuccess(desc, peer, isCaller)
 
 function createOfferFailure(domError)
 {
-	console.log("createOfferFailure %o", domerror);
+	console.log("createOfferFailure %o", domError);
 	rtcPeer.conn = null;
 }
 
