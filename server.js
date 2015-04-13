@@ -188,11 +188,17 @@ function handleSendAccept(webSocket, obj)
 	
 	if ( connID != "" ) {
 
-		var sender = clients[connID].description;
+		var sender = clients[connID];
 		// Who are we sending it to?
-		var receiver = clients[obj.peer];
+		var receiver = findPeerByID(obj.peer);
 
-		console.log("handleSendAccept: found reciever: %s", receiver.description.id);
+		if ( sender && receiver ) {
+			// send the response to receiver.socket.
+			var msg = createHostMsg( H2C_SIGNAL_TYPE_ACCEPT );
+			msg.peer = sender.description.id;
+			msg.sdp = obj.sdp;
+			receiver.socket.send( JSON.stringify( msg ) );
+		}
 	}
 }
 

@@ -21,8 +21,10 @@ function createClientMsg(type)
 		// do we need anything here?
 	} else if ( type == C2H_SIGNAL_TYPE_INVITE ) { 
 		// do we need anything here?
+	} else if ( type == C2H_SIGNAL_TYPE_ACCEPT ) { 
+		// do we need anything here?
 	} else {
-		console.log("createClientMsg: invalid type given : %s", type);
+		console.log("createClientMsg: invalid type given : %s.  expect to get an error response.", type);
 		msg = {};
 	}
 
@@ -93,12 +95,15 @@ function updateChannelMessage(event) {
 			console.log("updateChannelMessage: conversation_invite from %s sdp: %o", msgObj.peer, msgObj.sdp);
 
 			// Hi there.  I accept.
-			initAnswer( remotePeers[msgObj.peer] );
-			rtcPeer.conn.setRemoteDescription( new RTCSessionDescription(msgObj.sdp) );
+			answerCall( remotePeers[msgObj.peer], msgObj.sdp );
 
 		} else {
 			console.log("updateChannelMessage: conversation_invite couldn't resolve %s", msgObj.peer);
 		}
+
+	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_ACCEPT ) {
+
+		rtcPeer.conn.setRemoteDescription( new RTCSessionDescription(msgObj.sdp ) );
 
 	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_ERROR ) {
 		// TODO: dump better error messages in here.
@@ -225,16 +230,18 @@ function onIceServersReady(data)
 
 function initCall(toPeer)
 {
-	initConn(toPeer, true);
-
+	initConn(toPeer);
+	rtcPeer.conn.createOffer( function(desc){ createOfferSuccess(desc, toPeer, true) }, createOfferFailure );
 }
 
-function initAnswer(fromPeer)
+function answerCall(fromPeer, peerOffer)
 {
-	initConn(fromPeer, false);
+	initConn(fromPeer);
+	rtcPeer.conn.setRemoteDescription( new RTCSessionDescription( peerOffer ) );
+	rtcPeer.conn.createAnswer( function(desc){ createOfferSuccess(desc, fromPeer, false) }, createOfferFailure );
 }
 
-function initConn(peer, isCaller)
+function initConn(peer)
 {
 	// 1.  Create the RTCPeerConnection
 	rtcPeer.conn = new RTCPeerConnection( { iceServers: rtcPeer.iceServers } );
@@ -247,18 +254,10 @@ function initConn(peer, isCaller)
 	// 3.  Add the local stream.
 	rtcPeer.conn.addStream(rtcPeer.localStream);
 
-	var gotDesc = function(offer)
-	{
-		createOfferSuccess(offer, peer, isCaller);
-	}
-
-	// 4.  Create the offer.
-	if ( isCaller ) {
-		rtcPeer.conn.createOffer( gotDesc, createOfferFailure );
-	} else {
-		rtcPeer.conn.createAnswer( gotDesc, createOfferFailure );
-	}
-
+	// var gotDesc = function(offer)
+	// {
+	// 	createOfferSuccess(offer, peer, isCaller);
+	// }
 }
 
 function createOfferSuccess(desc, peer, isCaller)
@@ -312,8 +311,8 @@ function gotRemoteStream(event)
 {
 	console.log("got remote stream");
 	var remoteVideo = $("<video class='peerVideo' autoplay muted/></video>");
-	remoteVideo.src = URL.createObjectURL(event.stream);
-	$("#peerVideos").append(remoteVideo);
+	remoteVideo.src = URL.createObjectURL( event.stream );
+	$("#peerVideos").append( remoteVideo );
 }
 
 // 
