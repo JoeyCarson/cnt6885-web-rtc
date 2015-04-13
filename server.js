@@ -6,12 +6,14 @@
 var C2H_SIGNAL_TYPE_REGISTER = "register";
 var C2H_SIGNAL_TYPE_HEARTBEAT = "heartbeat";
 var C2H_SIGNAL_TYPE_INVITE = "invite";
+var C2H_SIGNAL_TYPE_ACCEPT = "accept";
 
 var H2C_SIGNAL_TYPE_WELCOME = "welcome";
 var H2C_SIGNAL_TYPE_ERROR = "error";
 var H2C_SIGNAL_TYPE_PEER_ADDED = "peer_joined";
 var H2C_SIGNAL_TYPE_PEER_LEFT = "peer_left";
 var H2C_SIGNAL_TYPE_INVITE = "conversation_invite";
+var H2C_SIGNAL_TYPE_ACCEPT = "conversation_accept";
 
 // Update channel endpoint names.
 var UPDATE_ENDPOINT_PEERS = "/peers";
@@ -135,6 +137,10 @@ function processMessage(socket, data, flags)
 
 		handleSendInvite(socket, msg);
 
+	} else if ( msg.signalType == C2H_SIGNAL_TYPE_ACCEPT ) {
+
+		handleSendAccept(socket, msg);
+
 	} else if ( msg.signalType == C2H_SIGNAL_TYPE_HEARTBEAT ) {
 
 		console.log("processMessage: received heartbeat from client: %s", connID);
@@ -169,8 +175,24 @@ function handleSendInvite(webSocket, obj)
 			
 			var msg = createHostMsg( H2C_SIGNAL_TYPE_INVITE );
 			msg.peer = callerPeer.description.id;
+			msg.sdp = obj.sdp;
 			receiverPeer.socket.send( JSON.stringify( msg ) );
 		}
+	}
+}
+
+function handleSendAccept(webSocket, obj)
+{
+	// Who is sending the accept message?
+	var connID = buildConnID(webSocket);
+	
+	if ( connID != "" ) {
+
+		var sender = clients[connID].description;
+		// Who are we sending it to?
+		var receiver = clients[obj.peer];
+
+		console.log("handleSendAccept: found reciever: %s", receiver.description.id);
 	}
 }
 

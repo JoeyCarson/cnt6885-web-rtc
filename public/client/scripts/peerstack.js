@@ -3,12 +3,14 @@
 var C2H_SIGNAL_TYPE_REGISTER = "register";
 var C2H_SIGNAL_TYPE_HEARTBEAT = "heartbeat";
 var C2H_SIGNAL_TYPE_INVITE = "invite";
+var C2H_SIGNAL_TYPE_ACCEPT = "accept";
 
-var H2C_SIGNAL_TYPE_INVITE = "conversation_invite";
 var H2C_SIGNAL_TYPE_WELCOME = "welcome";
 var H2C_SIGNAL_TYPE_ERROR = "error";
 var H2C_SIGNAL_TYPE_PEER_ADDED = "peer_joined";
 var H2C_SIGNAL_TYPE_PEER_LEFT = "peer_left";
+var H2C_SIGNAL_TYPE_INVITE = "conversation_invite";
+var H2C_SIGNAL_TYPE_ACCEPT = "conversation_accept";
 
 function createClientMsg(type)
 {
@@ -32,12 +34,14 @@ function initSignalChannel()
 
 	rtcPeer.channel = new WebSocket( location.origin.replace(/^http/, 'ws') + "/peers" );
 	rtcPeer.channel.onmessage = updateChannelMessage;
+	
 	rtcPeer.channel.onopen = function(event) { 
 		console.log("remote socket opened");
 
 		// We need to consistently send a heartbeat to keep the connection open.
 		rtcPeer.channelIntervalID = setInterval(sendHeartbeat, 40000);
 	}
+
 	rtcPeer.channel.onclose = function(event) {
 		console.log("host closed remote socket.");
 		if ( rtcPeer.channelIntervalID >= 0 ) {
@@ -85,18 +89,17 @@ function updateChannelMessage(event) {
 	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_INVITE ) {
 
 		if ( remotePeers[msgObj.peer] ) {
-			console.log("updateChannelMessage: conversation_invite from %s", msgObj.peer);
 
-			for ( var i = 0; i < remotePeers[msgObj.peer].iceCandidates.length; i++ ) 
-			{
-				rtcPeer.conn.addIceCandidate( new RTCIceCandidate( remotePeers[msgObj.peer].iceCandidates[i] ) );
-			}
+			console.log("updateChannelMessage: conversation_invite from %s sdp: %o", msgObj.peer, msgObj.sdp);
 
-			rtcPeer.conn.setRemoteDescription(new RTCSessionDescription(remotePeers[msgObj.peer].sdp));
-			rtcPeer.conn.createAnswer(createOfferSuccess);
+			// Hi there.  I accept.
+			initAnswer( remotePeers[msgObj.peer] );
+			rtcPeer.conn.setRemoteDescription( new RTCSessionDescription(msgObj.sdp) );
+
 		} else {
 			console.log("updateChannelMessage: conversation_invite couldn't resolve %s", msgObj.peer);
 		}
+
 	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_ERROR ) {
 		// TODO: dump better error messages in here.
 		console.log("updateChannelMessage: received error: ");	
@@ -114,25 +117,23 @@ function addRemotePeer(peerObj)
 		if ( id ) {
 			var p = remotePeers[id];
 			console.log("selected peer %o", p);
-
-			// Client sets himself up by adding all of the peer's ICE candidates and setting the
-			// peer's sdp as his own remote description.  This leaves the peer needing to create
-			// answer and set it as his remote description, as he is not the initiator, he is the
-			// the answerer.  We need to tell the server to ping him with our invite.
-			for ( var i = 0; i < p.iceCandidates.length; i++ ) {
-				rtcPeer.conn.addIceCandidate( new RTCIceCandidate( p.iceCandidates[i] ) );
-			}
-
-			rtcPeer.conn.setRemoteDescription( new RTCSessionDescription( p.sdp ) );
-			sendInviteToPeer(p);
+			initCall(p);
 		}
 	});
 }
 
-function sendInviteToPeer(remotePeer) {
+function sendInviteToPeer(remotePeer, desc) {
 
 	var msg = createClientMsg( C2H_SIGNAL_TYPE_INVITE );
 	msg.invitee = remotePeer.id;
+	msg.sdp = desc;
+	rtcPeer.channel.send( JSON.stringify( msg ) );
+}
+
+function sendAcceptToPeer(remotePeer, desc) {
+	var msg = createClientMsg( C2H_SIGNAL_TYPE_ACCEPT );
+	msg.sdp = desc;
+	msg.peer = remotePeer.id;
 	rtcPeer.channel.send( JSON.stringify( msg ) );
 }
 
@@ -175,7 +176,6 @@ function peerInit(localVideoID)
 	rtcPeer.localVideoID = localVideoID;
 	initSignalChannel();
 	getUserMedia({audio:true, video:true}, gotUserMedia, userMediaFailed);
-
 }
 
 function gotUserMedia(media)
@@ -213,42 +213,72 @@ function onIceServersReady(data)
 	// server list we got from the turnservers web service.
 	data[data.length] = {url: "stun:stun.stunprotocol.org:3478"};
 
-	// Initialize the connection.
-	initConn(data);
+	// Copy all ice servers from the data into the rtcPeer context.
+	for ( var i = 0; i < data.length; i++ ) {
+		rtcPeer.iceServers[rtcPeer.iceServers.length] = data[i];
+	}
+
+	// Register back with the server.
+	var jsonStr = JSON.stringify( createClientMsg( C2H_SIGNAL_TYPE_REGISTER ) );
+	rtcPeer.channel.send(jsonStr);
 }
 
-function initConn(rtcConfig)
+function initCall(toPeer)
+{
+	initConn(toPeer, true);
+
+}
+
+function initAnswer(fromPeer)
+{
+	initConn(fromPeer, false);
+}
+
+function initConn(peer, isCaller)
 {
 	// 1.  Create the RTCPeerConnection
-	rtcPeer.conn = new RTCPeerConnection({ iceServers: rtcConfig });
+	rtcPeer.conn = new RTCPeerConnection( { iceServers: rtcPeer.iceServers } );
 
-	// 2.  Add the local stream.
-	rtcPeer.conn.addStream(rtcPeer.localStream);
-
-	// 3.  Create your offer.
-	// TODO: Refactor for new initialization strategy.
-	rtcPeer.conn.createOffer(createOfferSuccess, createOfferFailure);
-
-	// 4.  Hook up various callbacks.
+	// 2.  Hook up various callbacks.
 	rtcPeer.conn.onicecandidate = onIceCandidate;
 	rtcPeer.conn.oniceconnectionstatechange = onIceConnStateChange;
 	rtcPeer.conn.onaddstream = gotRemoteStream;
+
+	// 3.  Add the local stream.
+	rtcPeer.conn.addStream(rtcPeer.localStream);
+
+	var gotDesc = function(offer)
+	{
+		createOfferSuccess(offer, peer, isCaller);
+	}
+
+	// 4.  Create the offer.
+	if ( isCaller ) {
+		rtcPeer.conn.createOffer( gotDesc, createOfferFailure );
+	} else {
+		rtcPeer.conn.createAnswer( gotDesc, createOfferFailure );
+	}
+
 }
 
-function createOfferSuccess(offer)
+function createOfferSuccess(desc, peer, isCaller)
 {
-	console.log("createOfferSuccess %o", offer);
+	console.log("createOfferSuccess %o", desc);
 
 	// Write the offer to the RTC stack.
-	rtcPeer.conn.setLocalDescription(offer);
+	rtcPeer.conn.setLocalDescription(desc);
 
-	// Save the SDP description to the server message.
-	rtcPeer.description.sdp = offer;
+	if ( isCaller ) {
+		sendInviteToPeer(peer, desc);
+	} else {
+		sendAcceptToPeer(peer, desc);
+	}
 }
 
 function createOfferFailure(domError)
 {
-	console.log("createOfferFailure %o", offer);
+	console.log("createOfferFailure %o", domerror);
+	rtcPeer.conn = null;
 }
 
 function onIceCandidate(event)
@@ -266,15 +296,8 @@ function onIceCandidate(event)
 		for ( var i = 0; i < rtcPeer.description.iceCandidates.length; i++ ) {
 			var candidate = rtcPeer.description.iceCandidates[i];
 			console.log("candidate[%d] = %o", i, candidate);
-			//rtcPeer.conn.addIceCandidate(candidate);
 		}
 
-		// Register back with the server.
-		var jsonStr = JSON.stringify( createClientMsg( C2H_SIGNAL_TYPE_REGISTER ) );
-		rtcPeer.channel.send(jsonStr);
-
-		// Legacy...
-		//$.post("register", jsonStr, function(data, status){ console.log("Data: " + data + "\nStatus: " + status); });
 	} else {
 		console.log("can't register with server.  no ice candidates");
 	}
@@ -300,13 +323,13 @@ window.onbeforeunload = function() {
 };
 
 // The rtc peer context object.
-var rtcPeer = { 
+var rtcPeer = {
 				conn: null, 
 				channel: null,
 				channelIntervalID: -1,
+				iceServers: [],
 				description: {
 					status: "Vegas Baby",
-					sdp: null,
 					iceCandidates: []
 				}
 			};
