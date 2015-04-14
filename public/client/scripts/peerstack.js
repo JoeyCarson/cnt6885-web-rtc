@@ -4,6 +4,7 @@ var C2H_SIGNAL_TYPE_REGISTER = "register";
 var C2H_SIGNAL_TYPE_HEARTBEAT = "heartbeat";
 var C2H_SIGNAL_TYPE_INVITE = "invite";
 var C2H_SIGNAL_TYPE_ACCEPT = "accept";
+var C2H_SIGNAL_TYPE_ICE_DIST = "distribute_ice";
 
 var H2C_SIGNAL_TYPE_WELCOME = "welcome";
 var H2C_SIGNAL_TYPE_ERROR = "error";
@@ -11,6 +12,7 @@ var H2C_SIGNAL_TYPE_PEER_ADDED = "peer_joined";
 var H2C_SIGNAL_TYPE_PEER_LEFT = "peer_left";
 var H2C_SIGNAL_TYPE_INVITE = "conversation_invite";
 var H2C_SIGNAL_TYPE_ACCEPT = "conversation_accept";
+var H2C_SIGNAL_TYPE_ICE = "add_ice_candidates";
 
 function createClientMsg(type)
 {
@@ -22,6 +24,8 @@ function createClientMsg(type)
 	} else if ( type == C2H_SIGNAL_TYPE_INVITE ) { 
 		// do we need anything here?
 	} else if ( type == C2H_SIGNAL_TYPE_ACCEPT ) { 
+		// do we need anything here?
+	} else if ( type == C2H_SIGNAL_TYPE_ICE_DIST ) {
 		// do we need anything here?
 	} else {
 		console.log("createClientMsg: invalid type given : %s.  expect to get an error response.", type);
@@ -98,12 +102,19 @@ function updateChannelMessage(event) {
 			answerCall( remotePeers[msgObj.peer], msgObj.sdp );
 
 		} else {
+
 			console.log("updateChannelMessage: conversation_invite couldn't resolve %s", msgObj.peer);
 		}
 
 	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_ACCEPT ) {
 
 		rtcPeer.conn.setRemoteDescription( new RTCSessionDescription(msgObj.sdp ) );
+
+	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_ICE ) {
+
+		for ( var i = 0; i < msgObj.candidates.length; i++ ) {
+			rtcPeer.conn.addIceCandidate( new RTCIceCandidate( msgObj.candidates[i] ) );
+		}
 
 	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_ERROR ) {
 		// TODO: dump better error messages in here.
@@ -139,6 +150,17 @@ function sendAcceptToPeer(remotePeer, desc) {
 	var msg = createClientMsg( C2H_SIGNAL_TYPE_ACCEPT );
 	msg.sdp = desc;
 	msg.peer = remotePeer.id;
+	rtcPeer.channel.send( JSON.stringify( msg ) );
+}
+
+/**
+ * Send the list of candidates to each of the given peers in the list.
+ */
+function sendICECandidates(candidates, toPeers)
+{
+	var msg = createClientMsg( C2H_SIGNAL_TYPE_ICE_DIST );
+	msg.candidates = candidates;
+	msg.peers = toPeers;
 	rtcPeer.channel.send( JSON.stringify( msg ) );
 }
 
@@ -254,10 +276,8 @@ function initConn(peer)
 	// 3.  Add the local stream.
 	rtcPeer.conn.addStream(rtcPeer.localStream);
 
-	// var gotDesc = function(offer)
-	// {
-	// 	createOfferSuccess(offer, peer, isCaller);
-	// }
+	// 4.  Remember the remote peer associated with the connection.
+	rtcPeer.remotePeerID = peer.id;
 }
 
 function createOfferSuccess(desc, peer, isCaller)
@@ -282,23 +302,9 @@ function createOfferFailure(domError)
 
 function onIceCandidate(event)
 {
-
-	if ( event.candidate ) {
-		console.log("onIceCandidate candidate");
-		rtcPeer.description.iceCandidates[rtcPeer.description.iceCandidates.length] = event.candidate;
-	} else if ( rtcPeer.description.iceCandidates.length > 0 ) {
-
-		// if we're receiving the null candidate, it appears that the stack has found all it can.
-		// this logic may not be sound, but it appears to be consistent for the time being.
-		// this is sort of the null termination of the list.
-		console.log("onIceCandidate candidate is null. dump candidates.");
-		for ( var i = 0; i < rtcPeer.description.iceCandidates.length; i++ ) {
-			var candidate = rtcPeer.description.iceCandidates[i];
-			console.log("candidate[%d] = %o", i, candidate);
-		}
-
-	} else {
-		console.log("can't register with server.  no ice candidates");
+	if ( event.candidate ) 
+	{
+		sendICECandidates([event.candidate], [rtcPeer.remotePeerID]);
 	}
 }
 
@@ -330,9 +336,9 @@ var rtcPeer = {
 				channel: null,
 				channelIntervalID: -1,
 				iceServers: [],
+				remotePeerID: "", // ID of the remote peer associated with the connection.
 				description: {
-					status: "Vegas Baby",
-					iceCandidates: []
+					status: "Vegas Baby"
 				}
 			};
 

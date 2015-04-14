@@ -7,6 +7,7 @@ var C2H_SIGNAL_TYPE_REGISTER = "register";
 var C2H_SIGNAL_TYPE_HEARTBEAT = "heartbeat";
 var C2H_SIGNAL_TYPE_INVITE = "invite";
 var C2H_SIGNAL_TYPE_ACCEPT = "accept";
+var C2H_SIGNAL_TYPE_ICE_DIST = "distribute_ice";
 
 var H2C_SIGNAL_TYPE_WELCOME = "welcome";
 var H2C_SIGNAL_TYPE_ERROR = "error";
@@ -14,6 +15,7 @@ var H2C_SIGNAL_TYPE_PEER_ADDED = "peer_joined";
 var H2C_SIGNAL_TYPE_PEER_LEFT = "peer_left";
 var H2C_SIGNAL_TYPE_INVITE = "conversation_invite";
 var H2C_SIGNAL_TYPE_ACCEPT = "conversation_accept";
+var H2C_SIGNAL_TYPE_ICE = "add_ice_candidates";
 
 // Update channel endpoint names.
 var UPDATE_ENDPOINT_PEERS = "/peers";
@@ -125,6 +127,7 @@ function processMessage(socket, data, flags)
 {
 	var msg = JSON.parse(data);
 	var connID = buildConnID(socket);
+
 	if ( !msg.signalType ) {
 
 		handleBadPDU(socket);
@@ -140,6 +143,10 @@ function processMessage(socket, data, flags)
 	} else if ( msg.signalType == C2H_SIGNAL_TYPE_ACCEPT ) {
 
 		handleSendAccept(socket, msg);
+
+	} else if ( msg.signalType == C2H_SIGNAL_TYPE_ICE_DIST ) {
+
+		handleICEDist(socket, msg);
 
 	} else if ( msg.signalType == C2H_SIGNAL_TYPE_HEARTBEAT ) {
 
@@ -199,6 +206,35 @@ function handleSendAccept(webSocket, obj)
 			msg.sdp = obj.sdp;
 			receiver.socket.send( JSON.stringify( msg ) );
 		}
+	}
+}
+
+function handleICEDist(webSocket, msg)
+{
+	// Grab the candidates and peers from msg.
+	if ( msg.candidates && msg.candidates.constructor === Array && msg.peers && msg.peers.constructor === Array ) {
+
+		var sender = clients[ buildConnID( webSocket ) ];
+
+		if ( sender ) {
+
+			// Create a message with a candidate list and peer id of the sender.
+			var response = createHostMsg( H2C_SIGNAL_TYPE_ICE );
+			response.peer = sender.description.id;
+			response.candidates = msg.candidates;
+
+			// Go through the list of peers that we need to communicate to.
+			// Find each peer and write the response to each associated socket.
+			for ( var pidx = 0; pidx < msg.peers.length; pidx++ ) {
+				var pid = msg.peers[pidx];
+				var receiver = findPeerByID(pid);
+				if ( receiver ) {
+					receiver.socket.send( JSON.stringify( response ) );
+				}
+			}
+
+		}
+
 	}
 }
 
