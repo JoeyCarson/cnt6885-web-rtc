@@ -92,6 +92,11 @@ function updateChannelMessage(event) {
 			addRemotePeer( msgObj.peer );
 		}
 
+	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_PEER_LEFT ) {
+
+		console.log("updateChannelMessage: peer_left: %s", msgObj.peer);
+		removeRemotePeer(msgObj.peer);
+
 	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_INVITE ) {
 
 		if ( remotePeers[msgObj.peer] ) {
@@ -136,6 +141,31 @@ function addRemotePeer(peerObj)
 			initCall(p);
 		}
 	});
+}
+
+function removeRemotePeer(peerID)
+{
+	var peerUI = findPeerUIObj(peerID);
+	if ( peerUI ) {
+		$(peerUI).remove();
+	}
+}
+
+function findPeerUIObj(peerID)
+{
+
+	if ( remotePeers[peerID] ) 
+	{
+		var uiObjects = $("#connectedPeerList").children();
+		for ( var i = 0; i < uiObjects.length; i++ ) {
+			if ( $(uiObjects[i]).data("peer_id") == peerID ) {
+				console.log("found peer with id: %s", peerID);
+				return uiObjects[i];
+			}
+		}
+	}
+
+	return null;
 }
 
 function sendInviteToPeer(remotePeer, desc) {

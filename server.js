@@ -117,7 +117,7 @@ wss.on("connection", function(webSocket) {
 
 	webSocket.on("close", function() {
 		// Praise satin for closures!!
-		removePeer(clientConnID);
+		removeClient(clientConnID);
 	});
 
 });
@@ -297,7 +297,7 @@ function addPeer(connID, peerObj)
 	}
 }
 
-function removePeer(connID) {
+function removeClient(connID) {
 	
 	// Remove the peer.
 	if ( clients[connID] ) {
@@ -306,6 +306,10 @@ function removePeer(connID) {
 		// then no other clients are aware of them.  We can simply remove them from tracking.
 		var pDesc = clients[connID].description;
 
+		// Now that we have pDesc, break the association.
+		var wasDeleted = delete clients[connID];
+		console.log("websocket: close: %s connection closed for client %s wasDeleted: %s", UPDATE_ENDPOINT_PEERS, connID, wasDeleted);	
+
 		if ( pDesc ) {
 			// The client registered a peer description.  
 			// Let us notify the others that they're gone.
@@ -313,14 +317,13 @@ function removePeer(connID) {
 			for ( var addr in clients ) {
 				var cli = clients[addr];
 				var sock = cli.socket;
-				if ( cli.id ) {
+				// Only let the peer know if they have a description object that ins't null.
+				// This means that they have registered.
+				if ( cli.description ) {
 					sendPeerRemoved(sock, peerID);
 				}
 			}
 		}
-
-		var wasDeleted = delete clients[connID];
-		console.log("websocket: close: %s connection closed for client %s wasDeleted: %s", UPDATE_ENDPOINT_PEERS, connID, wasDeleted);	
 	}
 }
 
@@ -335,7 +338,7 @@ function sendPeerAdded(targetSocket, peerObj)
 function sendPeerRemoved(targetSocket, peerID)
 {
 	var msg = createHostMsg(H2C_SIGNAL_TYPE_PEER_LEFT);
-	msg.peerID = peerID;
+	msg.peer = peerID;
 	targetSocket.send( JSON.stringify( msg ) );
 }
 
