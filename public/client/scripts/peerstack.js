@@ -145,10 +145,18 @@ function addRemotePeer(peerObj)
 
 function removeRemotePeer(peerID)
 {
+	// Remove it from the UI, if it exists.
 	var peerUI = findPeerUIObj(peerID);
 	if ( peerUI ) {
 		$(peerUI).remove();
 	}
+
+	// Remove it from our tracking.  This ccould be done in the 
+	// but that makes assumptions.  It's not a stretch to just 
+	// remove it from the object here.
+	if ( remotePeers[peerID] ) {
+		delete remotePeers[peerID];
+	} 
 }
 
 function findPeerUIObj(peerID)
