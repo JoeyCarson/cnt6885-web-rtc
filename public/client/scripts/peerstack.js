@@ -18,7 +18,7 @@ function createClientMsg(type)
 {
 	var msg = { signalType: type };
 	if ( type == C2H_SIGNAL_TYPE_REGISTER ) {
-		msg.peerDescription = rtcPeer.description;
+		msg.peerDescription = selfPeer.description;
 	} else if ( type == C2H_SIGNAL_TYPE_HEARTBEAT ) {
 		// do we need anything here?
 	} else if ( type == C2H_SIGNAL_TYPE_INVITE ) { 
@@ -38,28 +38,31 @@ function createClientMsg(type)
 function initSignalChannel()
 {
 
-	rtcPeer.channel = new WebSocket( location.origin.replace(/^http/, 'ws') + "/peers" );
-	rtcPeer.channel.onmessage = updateChannelMessage;
+	host.channel = new WebSocket( location.origin.replace(/^http/, 'ws') + "/peers" );
+	host.channel.onmessage = updateChannelMessage;
 	
-	rtcPeer.channel.onopen = function(event) { 
+	host.channel.onopen = function(event) { 
 		console.log("remote socket opened");
 
 		// We need to consistently send a heartbeat to keep the connection open.
-		rtcPeer.channelIntervalID = setInterval(sendHeartbeat, 40000);
+		host.channelIntervalID = setInterval(sendHeartbeat, 40000);
 	}
 
-	rtcPeer.channel.onclose = function(event) {
+	host.channel.onclose = function(event) {
 		console.log("host closed remote socket.");
-		if ( rtcPeer.channelIntervalID >= 0 ) {
-			clearInterval(rtcPeer.channelIntervalID);
+		if ( host.channelIntervalID >= 0 ) {
+			clearInterval(host.channelIntervalID);
+			host.channelIntervalID = -1;
 		}
 	}
 }
 
+// Send the server the heartbeat message to keep the socket
+// connection open.  
 function sendHeartbeat()
 {
 	console.log("sendHeartbeat");
-	rtcPeer.channel.send( JSON.stringify( createClientMsg( C2H_SIGNAL_TYPE_HEARTBEAT ) ) );
+	host.channel.send( JSON.stringify( createClientMsg( C2H_SIGNAL_TYPE_HEARTBEAT ) ) );
 }
 
 
@@ -71,16 +74,16 @@ function updateChannelMessage(event) {
 		
 		console.log("updateChannelMessage: malformed response!! %o", msgObj );
 
-	} else if ( msgObj.signalType == "welcome" ) {
+	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_WELCOME ) {
 
 		console.log("updateChannelMessage: received welcome from host.");
 		handleWelcome(msgObj);
 
-	} else if ( msgObj.signalType == "peer_joined" ) {
+	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_PEER_ADDED ) {
 
 		console.log("updateChannelMessage: received peer_joined from host.");
 
-		if ( msgObj.peer.id == rtcPeer.description.id ) {
+		if ( msgObj.peer.id == selfPeer.description.id ) {
 			console.log("updateChannelMessage: peer_joined: received notification that I've been added to the room. " + msgObj.peer.id);
 			console.log(msgObj);
 			// add self to UI when testing UI interaction
@@ -113,12 +116,12 @@ function updateChannelMessage(event) {
 
 	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_ACCEPT ) {
 
-		rtcPeer.conn.setRemoteDescription( new RTCSessionDescription(msgObj.sdp ) );
+		selfPeer.conn.setRemoteDescription( new RTCSessionDescription(msgObj.sdp ) );
 
 	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_ICE ) {
 
 		for ( var i = 0; i < msgObj.candidates.length; i++ ) {
-			rtcPeer.conn.addIceCandidate( new RTCIceCandidate( msgObj.candidates[i] ) );
+			selfPeer.conn.addIceCandidate( new RTCIceCandidate( msgObj.candidates[i] ) );
 		}
 
 	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_ERROR ) {
@@ -156,7 +159,7 @@ function removeRemotePeer(peerID)
 	// remove it from the object here.
 	if ( remotePeers[peerID] ) {
 		delete remotePeers[peerID];
-	} 
+	}
 }
 
 function findPeerUIObj(peerID)
@@ -181,14 +184,14 @@ function sendInviteToPeer(remotePeer, desc) {
 	var msg = createClientMsg( C2H_SIGNAL_TYPE_INVITE );
 	msg.invitee = remotePeer.id;
 	msg.sdp = desc;
-	rtcPeer.channel.send( JSON.stringify( msg ) );
+	host.channel.send( JSON.stringify( msg ) );
 }
 
 function sendAcceptToPeer(remotePeer, desc) {
 	var msg = createClientMsg( C2H_SIGNAL_TYPE_ACCEPT );
 	msg.sdp = desc;
 	msg.peer = remotePeer.id;
-	rtcPeer.channel.send( JSON.stringify( msg ) );
+	host.channel.send( JSON.stringify( msg ) );
 }
 
 /**
@@ -199,7 +202,7 @@ function sendICECandidates(candidates, toPeers)
 	var msg = createClientMsg( C2H_SIGNAL_TYPE_ICE_DIST );
 	msg.candidates = candidates;
 	msg.peers = toPeers;
-	rtcPeer.channel.send( JSON.stringify( msg ) );
+	host.channel.send( JSON.stringify( msg ) );
 }
 
 function createPeerUIObj(peerObj)
@@ -224,7 +227,7 @@ function handleWelcome(msgObj)
 	
 		console.log("updateChannelMessage: welcome: received id from host. " + msgObj.id);
 		console.log(msgObj);
-		rtcPeer.description.id = msgObj.id;
+		selfPeer.description.id = msgObj.id;
 
 		for ( var p in msgObj.peers ) {
 			addRemotePeer(msgObj.peers[p]);
@@ -238,7 +241,7 @@ function handleWelcome(msgObj)
 function peerInit(localVideoID)
 {
 	console.log("starting peer");
-	rtcPeer.localVideoID = localVideoID;
+	selfPeer.localVideoID = localVideoID;
 	initSignalChannel();
 	getUserMedia({audio:true, video:true}, gotUserMedia, userMediaFailed);
 }
@@ -248,10 +251,10 @@ function gotUserMedia(media)
 	console.log("user media success");
 	console.log("querying for ICE servers");
 	
-	rtcPeer.localStream = media;
+	selfPeer.localStream = media;
 	var url = URL.createObjectURL(media);
 
-	document.getElementById(rtcPeer.localVideoID).src = url;
+	document.getElementById(selfPeer.localVideoID).src = url;
 
 	// Find some TURN servers to help out if we're behind a corporate network.
 	//window.turnserversDotComAPI.iceServers(onIceServersReady);
@@ -280,50 +283,87 @@ function onIceServersReady(data)
 
 	// Copy all ice servers from the data into the rtcPeer context.
 	for ( var i = 0; i < data.length; i++ ) {
-		rtcPeer.iceServers[rtcPeer.iceServers.length] = data[i];
+		host.iceServers[host.iceServers.length] = data[i];
 	}
 
 	// Register back with the server.
 	var jsonStr = JSON.stringify( createClientMsg( C2H_SIGNAL_TYPE_REGISTER ) );
-	rtcPeer.channel.send(jsonStr);
+	host.channel.send(jsonStr);
 }
 
 function initCall(toPeer)
 {
-	initConn(toPeer);
-	rtcPeer.conn.createOffer( function(desc){ createOfferSuccess(desc, toPeer, true) }, createOfferFailure );
+
+	if ( !peerConnections[toPeer.id] ) {
+
+		// We're not connected to the peer.  Initialize a connection
+		// to the peer.
+		var peerConn = initConn(toPeer);
+		if ( peerConn ) {
+
+			// It worked.  Create the SDP offer and track the connection.
+			peerConn.conn.createOffer( function(desc) { createOfferSuccess(peerConn, desc, toPeer, true) }, createOfferFailure );
+			peerConnections[ toPeer.id ] = peerConn;
+		}
+
+	} else {
+		console.log("initCall: already tracking a connection to peer %s", peer.id);
+	}
 }
 
 function answerCall(fromPeer, peerOffer)
 {
-	initConn(fromPeer);
-	rtcPeer.conn.setRemoteDescription( new RTCSessionDescription( peerOffer ) );
-	rtcPeer.conn.createAnswer( function(desc){ createOfferSuccess(desc, fromPeer, false) }, createOfferFailure );
+	// If we know about this peer, initialize a connection for it.
+	if ( remotePeers[fromPeer.id] ) {
+
+		// Create a connection to the caller.
+		var callerConn = initConn(fromPeer);
+		if ( callerConn ) {
+
+			// It worked.  Set the SDP as the remote description.  Call create answer.
+			callerConn.conn.setRemoteDescription( new RTCSessionDescription( peerOffer ) );
+			callerConn.conn.createAnswer( function(desc) { createOfferSuccess(callerConn, desc, fromPeer, false) }, createOfferFailure );
+		}
+
+	} else {
+		console.log("received call from unknown peer %s", fromPeer.id);
+	}
 }
 
-function initConn(peer)
+// Initializes an RTCPeerConnection workflow to the given peer.
+// If no connection to the peer currently exists, this method will
+// create a new one, wire the appropriate callbacks, and return it.
+// If 
+function initConn(toPeer)
 {
+
+	// Generate a peer object.
+	var peerConn = createPeerConn();
+
 	// 1.  Create the RTCPeerConnection
-	rtcPeer.conn = new RTCPeerConnection( { iceServers: rtcPeer.iceServers } );
+	peerConn.conn = new RTCPeerConnection( { iceServers: host.iceServers } );
 
 	// 2.  Hook up various callbacks.
-	rtcPeer.conn.onicecandidate = onIceCandidate;
-	rtcPeer.conn.oniceconnectionstatechange = onIceConnStateChange;
-	rtcPeer.conn.onaddstream = gotRemoteStream;
+	peerConn.conn.onicecandidate = function(event) { onSendIceCandidate(event, toPeer); };
+	peerConn.conn.onaddstream = function(event) { gotRemoteStream(event, toPeer); };
+	peerConn.conn.onremovestream = function(event) { removeRemoteStream(event, toPeer); };
+	peerConn.conn.oniceconnectionstatechange = onIceConnStateChange;
 
 	// 3.  Add the local stream.
-	rtcPeer.conn.addStream(rtcPeer.localStream);
+	peerConn.conn.addStream(selfPeer.localStream);
 
 	// 4.  Remember the remote peer associated with the connection.
-	rtcPeer.remotePeerID = peer.id;
+	peerConn.remotePeerID = toPeer.id;
+
+	return peerConn;
 }
 
-function createOfferSuccess(desc, peer, isCaller)
+function createOfferSuccess(peerConn, desc, peer, isCaller)
 {
 	console.log("createOfferSuccess %o", desc);
 
 	// Write the offer to the RTC stack.
-	rtcPeer.conn.setLocalDescription(desc);
+	peerConn.conn.setLocalDescription(desc);
 
 	if ( isCaller ) {
 		sendInviteToPeer(peer, desc);
@@ -334,29 +374,57 @@ function createOfferSuccess(desc, peer, isCaller)
 
 function createOfferFailure(domError)
 {
+	// TODO: Trash the connection here.  Need to pass the connection down through here.
 	console.log("createOfferFailure %o", domError);
-	rtcPeer.conn = null;
+	//selfPeer.conn = null;
 }
 
-function onIceCandidate(event)
+// Sends the ice candidate to the given peer.
+function onSendIceCandidate(event, toPeer)
 {
 	if ( event.candidate ) 
 	{
-		sendICECandidates([event.candidate], [rtcPeer.remotePeerID]);
+		// TODO:  This kind of sucks in the case of multiple connections
+		// because we're going to be sending ICE candidates to all peers
+		// even though they've received it already.  Or perhaps we can
+		// simply target the target peer.
+		sendICECandidates([event.candidate], [toPeer.id]);
 	}
 }
 
 function onIceConnStateChange(event)
 {
-	console.log("onIceConnStateChange %s", rtcPeer.conn.iceConnectionState);
+	console.log("onIceConnStateChange %s", event);
 }
 
-function gotRemoteStream(event)
+// Callback to add the remote stream.
+function gotRemoteStream(event, fromPeer)
 {
 	console.log("got remote stream");
 	var remoteVideo = $("<video class='peerVideo' autoplay muted/></video>");
 	remoteVideo.attr("src", URL.createObjectURL( event.stream ));
 	$("#peerVideos").append( remoteVideo );
+}
+
+function removeRemoteStream(event, fromPeer)
+{
+	console.log("remove remote stream");
+}
+
+
+// Creates a new peer object.
+function createPeerConn()
+{
+
+	var peer = {
+		conn: null, 
+		remotePeerID: "", // ID of the remote peer associated with the connection.
+		description: {
+			status: "Vegas Baby"
+		}
+	};
+
+	return peer;
 }
 
 // 
@@ -365,24 +433,20 @@ window.onbeforeunload = function() {
 	// disable onclose handler first to prevent
 	// potential reconnect attempts.
     websocket.onclose = function () {}; 
-    rtcPeer.channel.close()
+    host.channel.close()
 };
 
+// Anything associated with the server context should be added here.
+var host = {
+	channel: null,
+	channelIntervalID: -1,
+	iceServers: []
+}
+
 // The rtc peer context object.
-var rtcPeer = {
-				conn: null, 
-				channel: null,
-				channelIntervalID: -1,
-				iceServers: [],
-				remotePeerID: "", // ID of the remote peer associated with the connection.
-				description: {
-					status: "Vegas Baby"
-				}
-			};
-
-// Object for tracking remote peers.
-var remotePeers = {  };
-
+var selfPeer = createPeerConn();
+var remotePeers = { }; 		// Object for tracking remote peers that are registerd with the host.
+var peerConnections = { };	// Object for tracking open connections to remote peers.
 
 
 
