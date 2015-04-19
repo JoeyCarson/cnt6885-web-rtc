@@ -84,12 +84,11 @@ function updateChannelMessage(event) {
 		console.log("updateChannelMessage: received peer_joined from host.");
 
 		if ( msgObj.peer.id == selfPeer.description.id ) {
+			// Acknowledge that we've been added to the group.
 			console.log("updateChannelMessage: peer_joined: received notification that I've been added to the room. " + msgObj.peer.id);
 			console.log(msgObj);
-			// add self to UI when testing UI interaction
-			// without another connected peer.
-			//addRemotePeer( msgObj.peer );
 		} else {
+			// A new peer has joined.  Add their UI.
 			console.log("updateChannelMessage: peer_joined: peer %s is now online.", msgObj.peer.id);
 			console.log(msgObj);
 			addRemotePeer( msgObj.peer );
@@ -116,12 +115,20 @@ function updateChannelMessage(event) {
 
 	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_ACCEPT ) {
 
-		selfPeer.conn.setRemoteDescription( new RTCSessionDescription(msgObj.sdp ) );
+		var peerConn = getPeerConn(msgObj.peer);
+		if ( peerConn ) {
+			peerConn.conn.setRemoteDescription( new RTCSessionDescription(msgObj.sdp ) );
+		} else {
+			console.log("updateChannelMessage: accept: no pending connection for peer %s", msgObj.peer);
+		}
 
 	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_ICE ) {
 
-		for ( var i = 0; i < msgObj.candidates.length; i++ ) {
-			selfPeer.conn.addIceCandidate( new RTCIceCandidate( msgObj.candidates[i] ) );
+		var peerConn = getPeerConn(msgObj.peer);
+		if ( peerConn ) {
+			for ( var i = 0; i < msgObj.candidates.length; i++ ) {
+				peerConn.conn.addIceCandidate( new RTCIceCandidate( msgObj.candidates[i] ) );
+			}
 		}
 
 	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_ERROR ) {
@@ -148,13 +155,27 @@ function addRemotePeer(peerObj)
 
 function removeRemotePeer(peerID)
 {
-	// Remove it from the UI, if it exists.
+	// Remove the peer button from the UI, if it exists.
 	var peerUI = findPeerUIObj(peerID);
 	if ( peerUI ) {
 		$(peerUI).remove();
 	}
 
-	// Remove it from our tracking.  This ccould be done in the 
+	// Clean up the video stream if it exists.
+	var pc = getPeerConn(peerID);
+	if ( pc ) {
+		// Close the connection.
+		pc.conn.close();
+		delete peerConnections[peerID];
+
+		// Clean up the video stream if it exists.
+		var peerVideoUI = getPeerVideo(peerID);
+		if ( peerVideoUI ) {
+			$(peerVideoUI).remove();
+		}
+	}
+
+	// Remove it from our tracking.  This could be done in the 
 	// but that makes assumptions.  It's not a stretch to just 
 	// remove it from the object here.
 	if ( remotePeers[peerID] ) {
@@ -307,7 +328,7 @@ function initCall(toPeer)
 		}
 
 	} else {
-		console.log("initCall: already tracking a connection to peer %s", peer.id);
+		console.log("initCall: already tracking a connection to peer %s", toPeer.id);
 	}
 }
 
@@ -323,6 +344,7 @@ function answerCall(fromPeer, peerOffer)
 			// It worked.  Set the SDP as the remote description.  Call create answer.
 			callerConn.conn.setRemoteDescription( new RTCSessionDescription( peerOffer ) );
 			callerConn.conn.createAnswer( function(desc) { createOfferSuccess(callerConn, desc, fromPeer, false) }, createOfferFailure );
+			peerConnections[ fromPeer.id ] = callerConn;
 		}
 
 	} else {
@@ -347,7 +369,7 @@ function initConn(toPeer)
 	peerConn.conn.onicecandidate = function(event) { onSendIceCandidate(event, toPeer); };
 	peerConn.conn.onaddstream = function(event) { gotRemoteStream(event, toPeer); };
 	peerConn.conn.onremovestream = function(event) { removeRemoteStream(event, toPeer); };
-	peerConn.conn.oniceconnectionstatechange = onIceConnStateChange;
+	peerConn.conn.oniceconnectionstatechange = function(event) { onIceConnStateChange(event, toPeer); };
 
 	// 3.  Add the local stream.
 	peerConn.conn.addStream(selfPeer.localStream);
@@ -376,7 +398,6 @@ function createOfferFailure(domError)
 {
 	// TODO: Trash the connection here.  Need to pass the connection down through here.
 	console.log("createOfferFailure %o", domError);
-	//selfPeer.conn = null;
 }
 
 // Sends the ice candidate to the given peer.
@@ -392,9 +413,12 @@ function onSendIceCandidate(event, toPeer)
 	}
 }
 
-function onIceConnStateChange(event)
+function onIceConnStateChange(event, peer)
 {
-	console.log("onIceConnStateChange %s", event);
+	var pc = getPeerConn(peer.id);
+	if ( pc ) {
+		console.log("onIceConnStateChange %s", pc.conn.iceConnectionState);
+	}
 }
 
 // Callback to add the remote stream.
@@ -403,6 +427,7 @@ function gotRemoteStream(event, fromPeer)
 	console.log("got remote stream");
 	var remoteVideo = $("<video class='peerVideo' autoplay muted/></video>");
 	remoteVideo.attr("src", URL.createObjectURL( event.stream ));
+	remoteVideo.data("peer_id", fromPeer.id);
 	$("#peerVideos").append( remoteVideo );
 }
 
@@ -425,6 +450,30 @@ function createPeerConn()
 	};
 
 	return peer;
+}
+
+function getPeerConn(id)
+{
+	if ( peerConnections[id] ) {
+		return peerConnections[id];
+	}
+
+	return null;
+}
+
+// Returns the root object containing the 
+// video and other controls assocaited with
+// the given peer id.
+function getPeerVideo(id)
+{
+	var peerVids = $("#peerVideos").children();
+	for ( var i = 0; i < peerVids.length; i++ ) {
+		if ( $(peerVids[i]).data("peer_id") == id ) {
+			return peerVids[i];
+		}
+	}
+
+	return null;
 }
 
 // 
