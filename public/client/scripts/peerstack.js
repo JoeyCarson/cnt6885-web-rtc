@@ -117,6 +117,7 @@ function updateChannelMessage(event) {
 
 		var peerConn = getPeerConn(msgObj.peer);
 		if ( peerConn ) {
+			console.log("updateChannelMessage: received accept response from peer: %s", msgObj.peer);
 			peerConn.conn.setRemoteDescription( new RTCSessionDescription(msgObj.sdp ) );
 		} else {
 			console.log("updateChannelMessage: accept: no pending connection for peer %s", msgObj.peer);
@@ -254,7 +255,7 @@ function handleWelcome(msgObj)
 {
 	if ( msgObj.id ) {
 	
-		console.log("updateChannelMessage: welcome: received id from host. " + msgObj.id);
+		console.log("updateChannelMessage: welcome: received id from host. %s peers: %o", msgObj.id, JSON.stringify(msgObj.peers))	;
 		console.log(msgObj);
 		selfPeer.description.id = msgObj.id;
 
