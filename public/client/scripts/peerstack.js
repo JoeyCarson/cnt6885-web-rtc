@@ -166,7 +166,6 @@ function removeRemotePeer(peerID)
 	if ( pc ) {
 		// Close the connection.
 		pc.conn.close();
-		delete peerConnections[peerID];
 
 		// Clean up the video stream if it exists.
 		var peerVideoUI = getPeerVideo(peerID);
@@ -175,11 +174,20 @@ function removeRemotePeer(peerID)
 		}
 	}
 
+	stopTrackingPeer(peerID);
+}
+
+function stopTrackingPeer(peerID)
+{
 	// Remove it from our tracking.  This could be done in the 
 	// but that makes assumptions.  It's not a stretch to just 
 	// remove it from the object here.
 	if ( remotePeers[peerID] ) {
 		delete remotePeers[peerID];
+	}	
+
+	if ( peerConnections[peerID] ) {
+		delete peerConnections[peerID];
 	}
 }
 
@@ -323,10 +331,11 @@ function initCall(toPeer)
 		if ( peerConn ) {
 
 			// It worked.  Create the SDP offer and track the connection.
+			// TODO:  Remember to remove the connection inside the failure handler.  Need to wrap it with a closure.
 			peerConn.conn.createOffer( function(desc) { createOfferSuccess(peerConn, desc, toPeer, true) }, createOfferFailure );
 			peerConnections[ toPeer.id ] = peerConn;
 		}
-
+ 
 	} else {
 		console.log("initCall: already tracking a connection to peer %s", toPeer.id);
 	}
@@ -425,10 +434,15 @@ function onIceConnStateChange(event, peer)
 function gotRemoteStream(event, fromPeer)
 {
 	console.log("got remote stream");
-	var remoteVideo = $("<video class='peerVideo' autoplay muted/></video>");
+	var remoteVideoRoot = $("<div class='peerVideo'></div>");
+	var remoteVideo = $("<video autoplay/></video>");
+
+	remoteVideoRoot.data("peer_id", fromPeer.id);
 	remoteVideo.attr("src", URL.createObjectURL( event.stream ));
-	remoteVideo.data("peer_id", fromPeer.id);
-	$("#peerVideos").append( remoteVideo );
+
+	remoteVideoRoot.append( remoteVideo );
+
+	$("#peerVideos").append( remoteVideoRoot );
 }
 
 function removeRemoteStream(event, fromPeer)
@@ -492,8 +506,19 @@ var host = {
 	iceServers: []
 }
 
-// The rtc peer context object.
-var selfPeer = createPeerConn();
+
+// TODO:  Get rid of this!  The self peer is not a connection, it's 
+// simply a local client context object.  This was a mistake at the time
+// to get multiple connections working, moving them out of this local
+// context into their own object.  Change it!!
+var selfPeer = createPeerConn(); 
+
+
+// TODO:  Aggregate both into a single list.  Having two lists is another
+// result of the meantime workflow to get multiple connections working, by
+// putting them into their own specific container.  All peers should be
+// in one object with connection state flags or something to identify
+// which ones are connected, not just putting them into a separate list.
 var remotePeers = { }; 		// Object for tracking remote peers that are registerd with the host.
 var peerConnections = { };	// Object for tracking open connections to remote peers.
 

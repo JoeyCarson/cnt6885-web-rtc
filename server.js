@@ -159,6 +159,19 @@ function processMessage(socket, data, flags)
 	}
 }
 
+// TODO: Come up with a function to assert that the given connection
+// has indeed connected and registered already.  Helps to be the front
+// line of state management.
+// function assertRegistered(connID)
+// {
+
+// 	if ( clients[connID] && clients[connID].description != null ) {
+
+// 	} else {
+// 		return false;
+// 	}
+// }
+
 function handleBadPDU(webSocket)
 {
 	var msg = createHostMsg( H2C_SIGNAL_TYPE_ERROR );
@@ -209,6 +222,8 @@ function handleSendAccept(webSocket, obj)
 	}
 }
 
+// Performs distribution of ice candidates from the client associated with
+// the given webSocket too all clients given in the msg object.
 function handleICEDist(webSocket, msg)
 {
 	// Grab the candidates and peers from msg.
