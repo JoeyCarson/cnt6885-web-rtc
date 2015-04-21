@@ -310,6 +310,7 @@ function onIceServersReady(data)
 	// Remember to add in the the public stun server to the TURN
 	// server list we got from the turnservers web service.
 	data[data.length] = {url: "stun:stun.stunprotocol.org:3478"};
+	data[data.length] = {url: "stun:stun.phoneserve.com:3478"};
 
 	// Copy all ice servers from the data into the rtcPeer context.
 	for ( var i = 0; i < data.length; i++ ) {
@@ -376,7 +377,7 @@ function initConn(toPeer)
 	peerConn.conn = new RTCPeerConnection( { iceServers: host.iceServers } );
 
 	// 2.  Hook up various callbacks.
-	peerConn.conn.onicecandidate = function(event) { onSendIceCandidate(event, toPeer); };
+	peerConn.conn.onicecandidate = function(event) { sendIceCandidate(event, toPeer); };
 	peerConn.conn.onaddstream = function(event) { gotRemoteStream(event, toPeer); };
 	peerConn.conn.onremovestream = function(event) { removeRemoteStream(event, toPeer); };
 	peerConn.conn.oniceconnectionstatechange = function(event) { onIceConnStateChange(event, toPeer); };
@@ -411,7 +412,7 @@ function createOfferFailure(domError)
 }
 
 // Sends the ice candidate to the given peer.
-function onSendIceCandidate(event, toPeer)
+function sendIceCandidate(event, toPeer)
 {
 	if ( event.candidate ) 
 	{
