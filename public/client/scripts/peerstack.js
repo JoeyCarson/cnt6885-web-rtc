@@ -14,6 +14,31 @@ var H2C_SIGNAL_TYPE_INVITE = "conversation_invite";
 var H2C_SIGNAL_TYPE_ACCEPT = "conversation_accept";
 var H2C_SIGNAL_TYPE_ICE = "add_ice_candidates";
 
+// Anything associated with the server context should be added here.
+var host = {
+	channel: null,
+	channelIntervalID: -1,
+	iceServers: []
+}
+
+
+// TODO:  Get rid of this!  The self peer is not a connection, it's 
+// simply a local client context object.  This was a mistake at the time
+// to get multiple connections working, moving them out of this local
+// context into their own object.  Change it!!
+var selfPeer = createPeerConn(); 
+
+
+// TODO:  Aggregate both into a single list.  Having two lists is another
+// result of the meantime workflow to get multiple connections working, by
+// putting them into their own specific container.  All peers should be
+// in one object with connection state flags or something to identify
+// which ones are connected, not just putting them into a separate list.
+var remotePeers = { }; 		// Object for tracking remote peers that are registerd with the host.
+var peerConnections = { };	// Object for tracking open connections to remote peers.
+
+
+
 function createClientMsg(type)
 {
 	var msg = { signalType: type };
@@ -438,14 +463,63 @@ function gotRemoteStream(event, fromPeer)
 	console.log("got remote stream");
 	var remoteVideoRoot = $("<div class='peerVideo'></div>");
 	var remoteVideo = $("<video autoplay/></video>");
+	var videoStats = createStatsUI(fromPeer);
 
 	remoteVideoRoot.data("peer_id", fromPeer.id);
 	remoteVideo.attr("src", URL.createObjectURL( event.stream ));
 
 	remoteVideoRoot.append( remoteVideo );
+	remoteVideoRoot.append( videoStats );
 
 	$("#peerVideos").append( remoteVideoRoot );
 }
+
+function createStatsUI(peer)
+{
+	var ui = $("<h1>stats</h1>");
+	var peerObj = getPeerConn(peer.id);
+	if ( peerObj && peerObj.conn ) {
+		console.log("scheduling stats");
+		var vTrack = peerObj.conn.getRemoteStreams()[0].getVideoTracks()[0];
+		setTimeout( function() { peerObj.conn.getStats( function(response) { updateStatsUI(ui, response); }, function(){} ); }, 1000);
+	}
+
+
+	return ui;
+}
+
+function updateStatsUI(ui, statsReport)
+{
+	var statsMap = parseStatsReport(statsReport);
+	console.log("statsMap", statsMap);
+}
+
+// Parses the given statsReport parameter and builds a parameter map from all
+// results.
+function parseStatsReport(statsReport)
+{
+	var itemMap = {};
+	var results = statsReport.result();
+	for ( var i = 0; i < results.length; i++ ) {
+		var res = results[i];
+		var names = res.names();
+		console.log("res %o", res);
+		for ( var n = 0; n < names.length; n++ ) {
+			var key = names[n];
+			var val = res.stat( key );
+			if ( itemMap[ key ] ) {
+				//console.log("warning! potentially overwriting existing statistic.  key: %s val: %o running map: %o", key, val, itemMap);
+			}
+
+			console.log("parseStatsReport: res[%d]  key: %s val: %o", n, key, val);
+			itemMap[ key ] = val;
+		}
+	}
+
+	return itemMap;
+}
+
+
 
 function removeRemoteStream(event, fromPeer)
 {
@@ -460,6 +534,7 @@ function createPeerConn()
 	var peer = {
 		conn: null, 
 		remotePeerID: "", // ID of the remote peer associated with the connection.
+		statsIntervalID: -1,
 		description: {
 			status: "Vegas Baby"
 		}
@@ -500,29 +575,6 @@ window.onbeforeunload = function() {
     websocket.onclose = function () {}; 
     host.channel.close()
 };
-
-// Anything associated with the server context should be added here.
-var host = {
-	channel: null,
-	channelIntervalID: -1,
-	iceServers: []
-}
-
-
-// TODO:  Get rid of this!  The self peer is not a connection, it's 
-// simply a local client context object.  This was a mistake at the time
-// to get multiple connections working, moving them out of this local
-// context into their own object.  Change it!!
-var selfPeer = createPeerConn(); 
-
-
-// TODO:  Aggregate both into a single list.  Having two lists is another
-// result of the meantime workflow to get multiple connections working, by
-// putting them into their own specific container.  All peers should be
-// in one object with connection state flags or something to identify
-// which ones are connected, not just putting them into a separate list.
-var remotePeers = { }; 		// Object for tracking remote peers that are registerd with the host.
-var peerConnections = { };	// Object for tracking open connections to remote peers.
 
 
 
