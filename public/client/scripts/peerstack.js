@@ -481,7 +481,7 @@ function createStatsUI(peer)
 	if ( peerObj && peerObj.conn ) {
 		console.log("scheduling stats");
 		var vTrack = peerObj.conn.getRemoteStreams()[0].getVideoTracks()[0];
-		setTimeout( function() { peerObj.conn.getStats( function(response) { updateStatsUI(ui, response); }, function(){} ); }, 1000);
+		setInterval( function() { peerObj.conn.getSimpleStats( function(response) { updateStatsUI(ui, response); }, 1000 ); }, 5000);
 	}
 
 
@@ -490,35 +490,9 @@ function createStatsUI(peer)
 
 function updateStatsUI(ui, statsReport)
 {
-	var statsMap = parseStatsReport(statsReport);
-	console.log("statsMap", statsMap);
+	//var statsMap = parseStatsReport(statsReport);
+	console.log("report: %o", statsReport);
 }
-
-// Parses the given statsReport parameter and builds a parameter map from all
-// results.
-function parseStatsReport(statsReport)
-{
-	var itemMap = {};
-	var results = statsReport.result();
-	for ( var i = 0; i < results.length; i++ ) {
-		var res = results[i];
-		var names = res.names();
-		console.log("res %o", res);
-		for ( var n = 0; n < names.length; n++ ) {
-			var key = names[n];
-			var val = res.stat( key );
-			if ( itemMap[ key ] ) {
-				//console.log("warning! potentially overwriting existing statistic.  key: %s val: %o running map: %o", key, val, itemMap);
-			}
-
-			console.log("parseStatsReport: res[%d]  key: %s val: %o", n, key, val);
-			itemMap[ key ] = val;
-		}
-	}
-
-	return itemMap;
-}
-
 
 
 function removeRemoteStream(event, fromPeer)
