@@ -213,6 +213,7 @@ function stopTrackingPeer(peerID)
 	}	
 
 	if ( peerConnections[peerID] ) {
+		clearInterval( peerConnections[peerID].statsIntervalID );
 		delete peerConnections[peerID];
 	}
 }
@@ -481,7 +482,7 @@ function createStatsUI(peer)
 	if ( peerObj && peerObj.conn ) {
 		console.log("scheduling stats");
 		var vTrack = peerObj.conn.getRemoteStreams()[0].getVideoTracks()[0];
-		setInterval( function() { peerObj.conn.getSimpleStats( function(response) { updateStatsUI(ui, response); }, 1000 ); }, 5000);
+		peerObj.statsIntervalID = setInterval( function() { peerObj.conn.getSimpleStats( function(response) { updateStatsUI(ui, response); }, 1000 ); }, 5000);
 	}
 
 
