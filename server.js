@@ -152,7 +152,10 @@ function processMessage(socket, data, flags)
 
 	} else if ( msg.signalType == C2H_SIGNAL_TYPE_HEARTBEAT ) {
 
-		console.log("processMessage: received heartbeat from client: %s", connID);
+		// Do nothing.  Heartbeats primarily keep the socket opened.
+		// But we need this section in the if statement in order to not
+		// fall into the error state.
+		//console.log("processMessage: received heartbeat from client: %s", connID);
 
 	} else {
 
@@ -194,7 +197,9 @@ function handleSendInvite(webSocket, obj)
 		
 		var callerPeer = clients[connID];
 		var receiverPeer = findPeerByID( obj.invitee );
-		console.log("handleSendInvite: receiver: %o", receiverPeer);
+		
+		// Be careful uncommenting the next line.  Major log spammer!
+		//console.log("handleSendInvite: receiver: %o", receiverPeer);
 
 		if ( receiverPeer ) {
 			console.log("handleSendInvite: caller %s initiating a call to %s", callerPeer.description.id, receiverPeer.description.id);
@@ -253,9 +258,7 @@ function handleICEDist(webSocket, msg)
 					receiver.socket.send( JSON.stringify( response ) );
 				}
 			}
-
 		}
-
 	}
 }
 

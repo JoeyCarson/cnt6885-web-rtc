@@ -1,5 +1,14 @@
 
 
+// Clear all properties of the object.
+Object.prototype.clear = function()
+{
+	for ( var p in this ) {
+		//console.log("clearing property: %s", p);
+		delete this[p];
+	}
+}
+
 var C2H_SIGNAL_TYPE_REGISTER = "register";
 var C2H_SIGNAL_TYPE_HEARTBEAT = "heartbeat";
 var C2H_SIGNAL_TYPE_INVITE = "invite";
@@ -94,7 +103,7 @@ function initSignalChannel()
 // connection open.  
 function sendHeartbeat()
 {
-	console.log("sendHeartbeat");
+	//console.log("sendHeartbeat");
 	host.channel.send( JSON.stringify( createClientMsg( C2H_SIGNAL_TYPE_HEARTBEAT ) ) );
 }
 
@@ -406,7 +415,12 @@ function initConn(toPeer)
 	// 1.  Create the RTCPeerConnection
 	peerConn.conn = new RTCPeerConnection( { iceServers: host.iceServers } );
 
-	// 2.  Hook up various callbacks.
+	// 2.  Hook up various callbacks.  
+	/// TODO:  Fix the function interface.  We're passing the actual generated connection
+	// to gotRemoteStream but the server message to every other function.  It works, but
+	// it seems unclear for all others to not take the actual connection.  Doing that will
+	// also help with not needing two different objects to track the peers, since we're now
+	// doing multiple automatic connections.
 	peerConn.conn.onicecandidate = function(event) { sendIceCandidate(event, toPeer); };
 	peerConn.conn.onaddstream = function(event) { gotRemoteStream(event, peerConn); };
 	peerConn.conn.onremovestream = function(event) { removeRemoteStream(event, toPeer); };
@@ -491,6 +505,16 @@ function gotRemoteStream(event, peer)
 	}, 1000);
 }
 
+function createAudioStatsID(peerObj)
+{
+	return createStatsID(peerObj) + "_audio_";
+}
+
+function createVideoStatsID(peerObj)
+{
+	return createStatsID(peerObj) + "_video_";
+}
+
 // Creates a unique ID for the stats element associated with the given peerObj.
 function createStatsID(peerObj)
 {
@@ -508,9 +532,8 @@ function createStatsUI(peer)
 {
 	var ui = $("<div class='statsSetGroup'><div>");
 
-	var idPrefix = createStatsID(peer);
-	var audioTable = createCommonStatsTable(peer.stats.delta.audio, idPrefix, "Audio");
-	var videoTable = createCommonStatsTable(peer.stats.delta.video, idPrefix, "Video");
+	var audioTable = createCommonStatsTable(peer.stats.delta.audio, createAudioStatsID(peer), "Audio");
+	var videoTable = createCommonStatsTable(peer.stats.delta.video, createVideoStatsID(peer), "Video");
 
 	ui.append(audioTable);
 	ui.append(videoTable);
@@ -518,6 +541,7 @@ function createStatsUI(peer)
 	return ui;
 }
 
+// Creates a table of statistics based on the given common commonStatsObj
 function createCommonStatsTable(commonStatsObj, idPrefix, title)
 {
 	var wrapper = $("<div class='statsSet'></div>");
@@ -525,10 +549,14 @@ function createCommonStatsTable(commonStatsObj, idPrefix, title)
 	var titlePara = $("<p></p>");
 	titlePara.append(title + ":");
 
-	var table = $("<table></table>");
+	var table = $("<table><th>property</th><th>value</th><th>average</th></table>");
 	
-	for ( var property in commonStatsObj ) {
+	var keys = Object.getOwnPropertyNames(commonStatsObj);
+
+	for ( var k = 0; k < keys.length; k++ ) {
 		
+		var property = keys[k];
+
 		// Create the row.
 		var row = $("<tr></tr>");
 
@@ -540,19 +568,21 @@ function createCommonStatsTable(commonStatsObj, idPrefix, title)
 		var td_val = $("<td></td>");
 		td_val.attr("id", idPrefix + "_" + property);
 
+		// Create the average td.
 		var td_avg = $("<td></td>");
 		td_avg.attr("id", idPrefix + "_" + property + "_avg");
 
+		// Add all td's to the row.
 		row.append(td_name);
 		row.append(td_val);
 		row.append(td_avg);
 
+		// Add the row to the table.
 		table.append(row);
 	}
 
 	wrapper.append(titlePara);
 	wrapper.append(table);
-
 
 	return wrapper;
 }
@@ -564,6 +594,9 @@ function updateStats(peer, statsReport)
 {
 
 	if ( statsReport ) {
+
+		// 0. Tick the statistic count once.
+		peer.stats.count++;
 
 		// 1. Copy the current stats to the current object.
 		// console.log("updateStats: peer: %o statsReport: %o", peer, statsReport);
@@ -578,7 +611,12 @@ function updateStats(peer, statsReport)
 	 	crunchCommonDelta(delta.video, currentStats.video, prevStats.video);
 
 	 	// 3. Update the previous stats to what current is now.
+	 	prevStats.clear();
 	 	$.extend(true, prevStats, currentStats);
+
+	 	// 4. Update the aggregate.  For reach property in the aggregate, add the associated currentStats value.
+	 	// This is necessary for averages.
+
 
 	 	// Stats are updated.  Apply the changes to the UI.
 	 	updateStatsUIForPeer(peer);
@@ -595,7 +633,26 @@ function crunchCommonDelta(delta, current, prev)
 
 function updateStatsUIForPeer(peerObj)
 {
+	// 1. Look up each delta property UI element and set the inner html to the associated values.
+	updatePropertiesUI(peerObj.stats.delta.video, createVideoStatsID(peerObj));
+	updatePropertiesUI(peerObj.stats.delta.audio, createAudioStatsID(peerObj));
+}
 
+function updatePropertiesUI(stats, idPrefix)
+{
+	var keys = Object.getOwnPropertyNames(stats);
+
+	for ( var k = 0; k < keys.length; k++ ) {
+		
+		var property = keys[k];
+		var propID = "#" + idPrefix + "_" + property;
+		var propAvgID = propID + "_avg";
+		var td_val = $(propID);
+
+		if ( td_val ) {
+			td_val.html( stats[property] );
+		}
+	}
 }
 
 function removeRemoteStream(event, fromPeer)
@@ -616,6 +673,7 @@ function createPeerConn()
 			count: 0,
 			prev: createStatsObj(),
 			current: createStatsObj(),
+			aggregate: createStatsObj(),
 			delta: createStatsObj()
 		},
 		description: {
