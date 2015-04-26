@@ -72,7 +72,7 @@ function initSignalChannel()
 
 		// We need to consistently send a heartbeat to keep the connection open.
 		// We don't want the party ending because we haven't pinged the server.
-		//host.channelIntervalID = setInterval(sendHeartbeat, 40000);
+		host.channelIntervalID = setInterval(sendHeartbeat, 40000);
 
 		// Now that the server is aware that we're here and we're cool, lets start
 		// getting the vide set up.  That way, when we get the video sent up, we
