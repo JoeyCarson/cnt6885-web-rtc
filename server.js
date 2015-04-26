@@ -128,6 +128,8 @@ function processMessage(socket, data, flags)
 	var msg = JSON.parse(data);
 	var connID = buildConnID(socket);
 
+	console.log("processMessage: msg from client: %s type: %s", connID, msg.signalType);
+
 	if ( !msg.signalType ) {
 
 		handleBadPDU(socket);
@@ -181,6 +183,9 @@ function handleBadPDU(webSocket)
 
 function handleSendInvite(webSocket, obj) 
 {
+
+	console.log("handleSendInvite: ");
+
 	var connID = buildConnID(webSocket);
 
 	if ( connID != "" ) {
@@ -189,6 +194,7 @@ function handleSendInvite(webSocket, obj)
 		
 		var callerPeer = clients[connID];
 		var receiverPeer = findPeerByID( obj.invitee );
+		console.log("handleSendInvite: receiver: %o", receiverPeer);
 
 		if ( receiverPeer ) {
 			console.log("handleSendInvite: caller %s initiating a call to %s", callerPeer.description.id, receiverPeer.description.id);
@@ -259,7 +265,7 @@ function findPeerByID(peerID)
 		var c = clients[addr];
 		//console.log("c: %s %o", addr, c);
 		if ( c && c.description && c.description.id == peerID ) {
-			console.log("findPeerByID: found peerID: %s at address %s", peerID, addr);
+			//console.log("findPeerByID: found peerID: %s at address %s", peerID, addr);
 			return c;
 		}
 	}
@@ -359,7 +365,9 @@ function sendPeerRemoved(targetSocket, peerID)
 
 function buildConnID(webSocket)
 {
-	return webSocket._socket.remoteAddress + ":" + webSocket._socket.remotePort;
+	var clientID = webSocket._socket.remoteAddress + ":" + webSocket._socket.remotePort;
+	//console.log("buildConnID: clientID: %s", clientID);
+	return clientID;
 }
 
 

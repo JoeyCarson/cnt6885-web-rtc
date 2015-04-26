@@ -34,7 +34,7 @@ var selfPeer = createPeerConn();
 // putting them into their own specific container.  All peers should be
 // in one object with connection state flags or something to identify
 // which ones are connected, not just putting them into a separate list.
-var remotePeers = { }; 		// Object for tracking remote peers that are registerd with the host.
+var remotePeers = { }; 		// Object for tracking remote peers that are registerd with the host.  Each object is more of a server message description.
 var peerConnections = { };	// Object for tracking open connections to remote peers.
 
 
@@ -67,10 +67,18 @@ function initSignalChannel()
 	host.channel.onmessage = updateChannelMessage;
 	
 	host.channel.onopen = function(event) { 
+		// The remote socket is openened. Huzzah!!  Start setting up the party.
 		console.log("remote socket opened");
 
 		// We need to consistently send a heartbeat to keep the connection open.
-		host.channelIntervalID = setInterval(sendHeartbeat, 40000);
+		// We don't want the party ending because we haven't pinged the server.
+		//host.channelIntervalID = setInterval(sendHeartbeat, 40000);
+
+		// Now that the server is aware that we're here and we're cool, lets start
+		// getting the vide set up.  That way, when we get the video sent up, we
+		// will tell the server that we're here and ready to market ourselves to
+		// the ::Barry White's Voice:: laaadiees.
+		getUserMedia({audio:true, video:true}, gotUserMedia, userMediaFailed);
 	}
 
 	host.channel.onclose = function(event) {
@@ -155,6 +163,8 @@ function updateChannelMessage(event) {
 			for ( var i = 0; i < msgObj.candidates.length; i++ ) {
 				peerConn.conn.addIceCandidate( new RTCIceCandidate( msgObj.candidates[i] ) );
 			}
+		} else {
+			console.log("updateChannelMessage: can't handle ice distribution to peer: %s", msgObj.peer);
 		}
 
 	} else if ( msgObj.signalType == H2C_SIGNAL_TYPE_ERROR ) {
@@ -166,17 +176,8 @@ function updateChannelMessage(event) {
 
 function addRemotePeer(peerObj)
 {
-	remotePeers[peerObj.id] = peerObj;
-	var ui = createPeerUIObj(peerObj);
-	$("#connectedPeerList").append( ui );
-	ui.click(function(event) { 
-		var id = $(ui).data("peer_id");
-		if ( id ) {
-			var p = remotePeers[id];
-			console.log("selected peer %o", p);
-			initCall(p);
-		}
-	});
+	// Start a call with this punk ass bitch.
+	initCall(peerObj);
 }
 
 function removeRemotePeer(peerID)
@@ -212,7 +213,7 @@ function stopTrackingPeer(peerID)
 		delete remotePeers[peerID];
 	}	
 
-	if ( peerConnections[peerID] ) {
+	if ( peerConnections[peerID] ) {	
 		clearInterval( peerConnections[peerID].statsIntervalID );
 		delete peerConnections[peerID];
 	}
@@ -279,14 +280,18 @@ function createPeerUIObj(peerObj)
 
 function handleWelcome(msgObj)
 {
+	// Hmmm, fuzzing tests?
 	if ( msgObj.id ) {
 	
-		console.log("updateChannelMessage: welcome: received id from host. %s peers: %o", msgObj.id, JSON.stringify(msgObj.peers))	;
+		console.log("updateChannelMessage: welcome: received id from host. %s peers: %o", msgObj.id, JSON.stringify(msgObj.peers));
 		console.log(msgObj);
 		selfPeer.description.id = msgObj.id;
 
+		// Don't call everyone in the room when you log on.  They'll call you
+		// when they realize that you're new to the room.
 		for ( var p in msgObj.peers ) {
-			addRemotePeer(msgObj.peers[p]);
+			// 	addRemotePeer(msgObj.peers[p]);
+			remotePeers[p] = msgObj.peers[p];
 		}
 	
 	} else {
@@ -299,7 +304,6 @@ function peerInit(localVideoID)
 	console.log("starting peer");
 	selfPeer.localVideoID = localVideoID;
 	initSignalChannel();
-	getUserMedia({audio:true, video:true}, gotUserMedia, userMediaFailed);
 }
 
 function gotUserMedia(media)
@@ -348,24 +352,24 @@ function onIceServersReady(data)
 	host.channel.send(jsonStr);
 }
 
-function initCall(toPeer)
+function initCall(serverPeer)
 {
 
-	if ( !peerConnections[toPeer.id] ) {
+	if ( !peerConnections[serverPeer.id] ) {
 
 		// We're not connected to the peer.  Initialize a connection
 		// to the peer.
-		var peerConn = initConn(toPeer);
+		var peerConn = initConn(serverPeer);
 		if ( peerConn ) {
 
 			// It worked.  Create the SDP offer and track the connection.
 			// TODO:  Remember to remove the connection inside the failure handler.  Need to wrap it with a closure.
-			peerConn.conn.createOffer( function(desc) { createOfferSuccess(peerConn, desc, toPeer, true) }, createOfferFailure );
-			peerConnections[ toPeer.id ] = peerConn;
+			peerConn.conn.createOffer( function(desc) { createOfferSuccess(peerConn, desc, serverPeer, true) }, createOfferFailure );
+			peerConnections[ serverPeer.id ] = peerConn;
 		}
  
 	} else {
-		console.log("initCall: already tracking a connection to peer %s", toPeer.id);
+		console.log("initCall: already tracking a connection to peer %s", serverPeer.id);
 	}
 }
 
@@ -404,7 +408,7 @@ function initConn(toPeer)
 
 	// 2.  Hook up various callbacks.
 	peerConn.conn.onicecandidate = function(event) { sendIceCandidate(event, toPeer); };
-	peerConn.conn.onaddstream = function(event) { gotRemoteStream(event, toPeer); };
+	peerConn.conn.onaddstream = function(event) { gotRemoteStream(event, peerConn); };
 	peerConn.conn.onremovestream = function(event) { removeRemoteStream(event, toPeer); };
 	peerConn.conn.oniceconnectionstatechange = function(event) { onIceConnStateChange(event, toPeer); };
 
@@ -412,7 +416,7 @@ function initConn(toPeer)
 	peerConn.conn.addStream(selfPeer.localStream);
 
 	// 4.  Remember the remote peer associated with the connection.
-	peerConn.remotePeerID = toPeer.id;
+	peerConn.id = toPeer.id;
 
 	return peerConn;
 }
@@ -459,42 +463,140 @@ function onIceConnStateChange(event, peer)
 }
 
 // Callback to add the remote stream.
-function gotRemoteStream(event, fromPeer)
+function gotRemoteStream(event, peer)
 {
 	console.log("got remote stream");
 	var remoteVideoRoot = $("<div class='peerVideo'></div>");
-	var remoteVideo = $("<video autoplay/></video>");
-	var videoStats = createStatsUI(fromPeer);
+	// remove the muted attribute!! Just need to get rid of feedback while locally testing.
+	var remoteVideo = $("<video autoplay muted/></video>");
+	var videoStats = createStatsUI(peer);
 
-	remoteVideoRoot.data("peer_id", fromPeer.id);
+	remoteVideoRoot.data("peer_id", peer.id);
 	remoteVideo.attr("src", URL.createObjectURL( event.stream ));
+	videoStats.attr("id", createStatsID(peer));
 
 	remoteVideoRoot.append( remoteVideo );
 	remoteVideoRoot.append( videoStats );
 
+	// Append the video and iniitalize the performance statistics update callback.
 	$("#peerVideos").append( remoteVideoRoot );
+
+
+	peer.statsIntervalID = setInterval( function() { 
+		// TODO:  Observe the 1000 passed as the second argument.  The getSimpleStats API is an open source
+		// wrapper that is not quite fully baked yet.  The value doesn't actually do anything, though one would
+		// expect it to be a method of scheduling an interval statistic update.  Perhaps I can implement this
+		// change and push to the open source repo.  In the meantime, we've got a show to do.
+		peer.conn.getSimpleStats( function(response) { updateStats(peer, response); }, 1000 ); 
+	}, 1000);
+}
+
+// Creates a unique ID for the stats element associated with the given peerObj.
+function createStatsID(peerObj)
+{
+	var id = "";
+	if ( peerObj && peerObj.id ) {
+		id = "peerStats_" + peerObj.id;
+	} else {
+		console.log("createStatsID: can't generate peer stats ID.  peerObj: %o", peerObj);
+	}
+
+	return id;
 }
 
 function createStatsUI(peer)
 {
-	var ui = $("<h1>stats</h1>");
-	var peerObj = getPeerConn(peer.id);
-	if ( peerObj && peerObj.conn ) {
-		console.log("scheduling stats");
-		var vTrack = peerObj.conn.getRemoteStreams()[0].getVideoTracks()[0];
-		peerObj.statsIntervalID = setInterval( function() { peerObj.conn.getSimpleStats( function(response) { updateStatsUI(ui, response); }, 1000 ); }, 5000);
-	}
+	var ui = $("<div class='statsSetGroup'><div>");
 
+	var idPrefix = createStatsID(peer);
+	var audioTable = createCommonStatsTable(peer.stats.delta.audio, idPrefix, "Audio");
+	var videoTable = createCommonStatsTable(peer.stats.delta.video, idPrefix, "Video");
+
+	ui.append(audioTable);
+	ui.append(videoTable);
 
 	return ui;
 }
 
-function updateStatsUI(ui, statsReport)
+function createCommonStatsTable(commonStatsObj, idPrefix, title)
 {
-	//var statsMap = parseStatsReport(statsReport);
-	console.log("report: %o", statsReport);
+	var wrapper = $("<div class='statsSet'></div>");
+
+	var titlePara = $("<p></p>");
+	titlePara.append(title + ":");
+
+	var table = $("<table></table>");
+	
+	for ( var property in commonStatsObj ) {
+		
+		// Create the row.
+		var row = $("<tr></tr>");
+
+		// Create the td with the property name.
+		var td_name = $("<td></td>");
+		td_name.append(property + ":");
+
+		// Create the value td.
+		var td_val = $("<td></td>");
+		td_val.attr("id", idPrefix + "_" + property);
+
+		var td_avg = $("<td></td>");
+		td_avg.attr("id", idPrefix + "_" + property + "_avg");
+
+		row.append(td_name);
+		row.append(td_val);
+		row.append(td_avg);
+
+		table.append(row);
+	}
+
+	wrapper.append(titlePara);
+	wrapper.append(table);
+
+
+	return wrapper;
 }
 
+// Updates the statistics of the peer object.  The peer statistics are StreamStats
+// objects, but they end up containing extra dynamic properties that come from the
+// statsReport object.
+function updateStats(peer, statsReport)
+{
+
+	if ( statsReport ) {
+
+		// 1. Copy the current stats to the current object.
+		// console.log("updateStats: peer: %o statsReport: %o", peer, statsReport);
+		var currentStats = peer.stats.current;
+		$.extend(true, currentStats.audio, statsReport.audio);
+		$.extend(true, currentStats.video, statsReport.video);
+
+		// 2. Crunch the deltas.
+		var prevStats = peer.stats.prev;
+		var delta = peer.stats.delta;
+	 	crunchCommonDelta(delta.audio, currentStats.audio, prevStats.audio);
+	 	crunchCommonDelta(delta.video, currentStats.video, prevStats.video);
+
+	 	// 3. Update the previous stats to what current is now.
+	 	$.extend(true, prevStats, currentStats);
+
+	 	// Stats are updated.  Apply the changes to the UI.
+	 	updateStatsUIForPeer(peer);
+	}
+}
+
+// Crunches the common delta properties (e.g. properties that are common among video and audio).
+function crunchCommonDelta(delta, current, prev)
+{
+ 	delta.bytesSent   = current.bytesSent   - prev.bytesSent;
+ 	delta.packetsLost = current.packetsLost - prev.packetsLost;
+ 	delta.packetsSent = current.packetsSent - prev.packetsSent;
+}
+
+function updateStatsUIForPeer(peerObj)
+{
+
+}
 
 function removeRemoteStream(event, fromPeer)
 {
@@ -508,8 +610,14 @@ function createPeerConn()
 
 	var peer = {
 		conn: null, 
-		remotePeerID: "", // ID of the remote peer associated with the connection.
+		id: "", // ID of the remote peer associated with the connection.
 		statsIntervalID: -1,
+		stats: {
+			count: 0,
+			prev: createStatsObj(),
+			current: createStatsObj(),
+			delta: createStatsObj()
+		},
 		description: {
 			status: "Vegas Baby"
 		}
@@ -517,6 +625,20 @@ function createPeerConn()
 
 	return peer;
 }
+
+function createStreamStats()
+{
+	return { bytesSent: 0, packetsLost: 0, packetsSent: 0 };
+}
+
+
+function createStatsObj()
+{
+	var a = createStreamStats();
+	var v = createStreamStats();
+	return { audio: a, video: v };
+}
+
 
 function getPeerConn(id)
 {
