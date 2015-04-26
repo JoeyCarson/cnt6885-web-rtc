@@ -25,10 +25,10 @@
     };
 
     if (navigator.mozGetUserMedia) {
-      videoTrack = pc.getLocalStreams()[0].getVideoTracks()[0];
+      var videoTrack = pc.getLocalStreams()[0].getVideoTracks()[0];
       pc.getStats(videoTrack, prepareFirefoxStats, failureCallback);
 
-      audioTrack = pc.getLocalStreams()[0].getAudioTracks()[0];
+      var audioTrack = pc.getLocalStreams()[0].getAudioTracks()[0];
       pc.getStats(audioTrack, prepareFirefoxStats, failureCallback);
     } else if (navigator.webkitGetUserMedia) {
       pc.getStats(prepareChromeStats);
@@ -135,38 +135,40 @@
         // Video - Chrome
         if (res.googCodecName == 'VP8') {
           stats.video = merge(stats.video, {
-            frameHeightInput: res.googFrameHeightInput,
-            frameWidthInput: res.googFrameWidthInput,
-            rtt: res.googRtt,
-            packetsLost: res.packetsLost,
-            packetsSent: res.packetsSent,
-            frameRateInput: res.googFrameRateInput,
-            frameRateSent: res.googFrameRateSent,
-            frameHeightSent: res.googFrameHeightSent,
-            frameWidthSent: res.googFrameWidthSent,
-            bytesSent: res.bytesSent
+            frameHeightInput: parseInt(res.googFrameHeightInput),
+            frameWidthInput: parseInt(res.googFrameWidthInput),
+            rtt: parseInt(res.googRtt),
+            packetsLost: parseInt(res.packetsLost),
+            packetsSent: parseInt(res.packetsSent),
+            frameRateInput: parseInt(res.googFrameRateInput),
+            frameRateSent: parseInt(res.googFrameRateSent),
+            frameHeightSent: parseInt(res.googFrameHeightSent),
+            frameWidthSent: parseInt(res.googFrameWidthSent),
+            bytesSent: parseInt(res.bytesSent)
           });
         }
 
         // Video - Firefox
         if (res.mediaType == 'video') {
           if (res.isRemote) {
+            // Parse remote statistics.
             stats.video = merge(stats.video, {
               rtt: res.mozRtt,
               packetsLost: res.packetsLost
             });
           } else {
+            // Parse remote statistics.
             var localVideo = document.getElementById('localVideo');
 
             stats.video = merge(stats.video, {
               frameHeightInput: localVideo.videoHeight,
               frameWidthInput: localVideo.videoWidth,
               packetsSent: res.packetsSent,
+              bytesSent: res.bytesSent,
               frameRateInput: Math.round(res.framerateMean),
-              frameRateSent: '?',
-              frameHeightSent: '?',
-              frameWidthSent: '?',
-              bytesSent: res.bytesSent
+              frameRateSent: -1,  //'?',
+              frameHeightSent: -1,  //'?',
+              frameWidthSent: -1  //'?',
             });
           }
         }
@@ -186,8 +188,8 @@
      */
     function merge(obj1, obj2) {
       var obj3 = {};
-      for (var prop in obj1) { obj3[prop] = obj1[prop]; }
-      for (var prop in obj2) { obj3[prop] = obj2[prop]; }
+      for (var prop in obj1) { if ( obj1[prop] ) obj3[prop] = obj1[prop]; }
+      for (var prop in obj2) { if ( obj2[prop] ) obj3[prop] = obj2[prop]; }
       return obj3;
     }
   }
