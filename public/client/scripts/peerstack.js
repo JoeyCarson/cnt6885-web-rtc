@@ -482,7 +482,7 @@ function gotRemoteStream(event, peer)
 	console.log("got remote stream");
 	var remoteVideoRoot = $("<div class='peerVideo'></div>");
 	// remove the muted attribute!! Just need to get rid of feedback while locally testing.
-	var remoteVideo = $("<video autoplay muted/></video>");
+	var remoteVideo = $("<video autoplay/></video>");
 	var videoStats = createStatsUI(peer);
 
 	remoteVideoRoot.data("peer_id", peer.id);
@@ -627,8 +627,10 @@ function updateStats(peer, statsReport)
 function crunchCommonDelta(delta, current, prev)
 {
  	delta.bytesSent   = current.bytesSent   - prev.bytesSent;
+ 	delta.bytesReceived = current.bytesReceived - prev.bytesReceived;
  	delta.packetsLost = current.packetsLost - prev.packetsLost;
  	delta.packetsSent = current.packetsSent - prev.packetsSent;
+ 	delta.packetsReceived = current.packetsReceived - prev.packetsReceived; 	
 }
 
 function updateStatsUIForPeer(peerObj)
@@ -686,7 +688,7 @@ function createPeerConn()
 
 function createStreamStats()
 {
-	return { bytesSent: 0, packetsLost: 0, packetsSent: 0 };
+	return { bytesSent: 0, bytesReceived: 0, packetsLost: 0, packetsSent: 0, packetsReceived: 0 };
 }
 
 

@@ -25,11 +25,12 @@
     };
 
     if (navigator.mozGetUserMedia) {
-      var videoTrack = pc.getLocalStreams()[0].getVideoTracks()[0];
-      pc.getStats(videoTrack, prepareFirefoxStats, failureCallback);
+      // var videoTrack = pc.getLocalStreams()[0].getVideoTracks()[0];
+      // pc.getStats(videoTrack, prepareFirefoxStats, failureCallback);
 
-      var audioTrack = pc.getLocalStreams()[0].getAudioTracks()[0];
-      pc.getStats(audioTrack, prepareFirefoxStats, failureCallback);
+      // var audioTrack = pc.getLocalStreams()[0].getAudioTracks()[0];
+      // pc.getStats(audioTrack, prepareFirefoxStats, failureCallback);
+      pc.getStats(null, prepareFirefoxStats, failureCallback);
     } else if (navigator.webkitGetUserMedia) {
       pc.getStats(prepareChromeStats);
     } else {
@@ -154,7 +155,9 @@
             // Parse remote statistics.
             stats.video = merge(stats.video, {
               rtt: res.mozRtt,
-              packetsLost: res.packetsLost
+              packetsLost: res.packetsLost,
+              packetsReceived: res.packetsReceived,
+              bytesReceived: res.bytesReceived
             });
           } else {
             // Parse remote statistics.
