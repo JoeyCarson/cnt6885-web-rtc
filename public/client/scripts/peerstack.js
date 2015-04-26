@@ -604,6 +604,13 @@ function updateStats(peer, statsReport)
 		$.extend(true, currentStats.audio, statsReport.audio);
 		$.extend(true, currentStats.video, statsReport.video);
 
+		console.log("updateStats: audio: bytesSent %s bytesReceived: %s packetsLost: %s packetsSent: %s packetsReceived: %s",
+								 currentStats.audio.bytesSent, currentStats.audio.bytesReceived, currentStats.audio.packetsLost, currentStats.audio.packetsSent, currentStats.audio.packetsReceived);
+
+		console.log("updateStats: video: bytesSent %s bytesReceived: %s packetsLost: %s packetsSent: %s packetsReceived: %s",
+								 currentStats.video.bytesSent, currentStats.video.bytesReceived, currentStats.video.packetsLost, currentStats.video.packetsSent, currentStats.video.packetsReceived);
+
+
 		// 2. Crunch the deltas.
 		var prevStats = peer.stats.prev;
 		var delta = peer.stats.delta;

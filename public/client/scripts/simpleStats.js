@@ -76,6 +76,7 @@
       var idx,
           res;
 
+      console.log("simpleStats: common: begin packageStats");
       for (idx = 0; idx < stats.results.length; idx++) {
         res = stats.results[idx];
 
@@ -120,16 +121,28 @@
         // Audio - Firefox
         if (res.mediaType == 'audio') {
           if (res.isRemote) {
-            stats.audio = merge(stats.audio, {
+
+            var newStats = {
               inputLevel: '?',
               rtt: res.mozRtt,
-              packetsLost: res.packetsLost
-            });
+              packetsLost: res.packetsLost,
+              packetsReceived: res.packetsReceived,
+              bytesReceived: res.bytesReceived
+            };
+
+            //console.log("simpleStats: firefox: updating remote audio stats %o", newStats);
+            stats.audio = merge(stats.audio, newStats);
+            //console.log("simpleStats: firefox: merged audio stats %o", stats.audio);            
           } else {
-            stats.audio = merge(stats.audio, {
+            
+            var newStats = {
               packetsSent: res.packetsSent,
               bytesSent: res.bytesSent
-            });
+            };
+
+            //console.log("simpleStats: firefox: updating local audio stats %o", newStats);
+            stats.audio = merge(stats.audio, newStats);
+            //console.log("simpleStats: firefox: merged audio stats %o", stats.audio);
           }
         }
 
@@ -153,17 +166,21 @@
         if (res.mediaType == 'video') {
           if (res.isRemote) {
             // Parse remote statistics.
-            stats.video = merge(stats.video, {
+            var newStats = {
               rtt: res.mozRtt,
               packetsLost: res.packetsLost,
               packetsReceived: res.packetsReceived,
               bytesReceived: res.bytesReceived
-            });
+            };
+
+            //console.log("simpleStats: firefox: update remote video stats %o", newStats);
+            stats.video = merge(stats.video, newStats);
+
           } else {
             // Parse remote statistics.
             var localVideo = document.getElementById('localVideo');
 
-            stats.video = merge(stats.video, {
+            var newStats = {
               frameHeightInput: localVideo.videoHeight,
               frameWidthInput: localVideo.videoWidth,
               packetsSent: res.packetsSent,
@@ -172,7 +189,9 @@
               frameRateSent: -1,  //'?',
               frameHeightSent: -1,  //'?',
               frameWidthSent: -1  //'?',
-            });
+            };
+            //console.log("simpleStats: firefox: update local video stats %o", newStats);
+            stats.video = merge(stats.video, newStats);
           }
         }
       }
@@ -191,8 +210,13 @@
      */
     function merge(obj1, obj2) {
       var obj3 = {};
-      for (var prop in obj1) { if ( obj1[prop] ) obj3[prop] = obj1[prop]; }
-      for (var prop in obj2) { if ( obj2[prop] ) obj3[prop] = obj2[prop]; }
+      for (var prop in obj1) { obj3[prop] = obj1[prop]; }
+      for (var prop in obj2) { 
+        if ( obj2[prop] ) { 
+          obj3[prop] = obj2[prop]; 
+        } 
+        //else console.log("not adding %s to obj3. it's undefined", prop);
+      }
       return obj3;
     }
   }
