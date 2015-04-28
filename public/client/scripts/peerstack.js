@@ -223,23 +223,6 @@ function stopTrackingPeer(peerID)
 	}
 }
 
-// function findPeerUIObj(peerID)
-// {
-
-// 	if ( remotePeers[peerID] ) 
-// 	{
-// 		var uiObjects = $("#connectedPeerList").children();
-// 		for ( var i = 0; i < uiObjects.length; i++ ) {
-// 			if ( $(uiObjects[i]).data("peer_id") == peerID ) {
-// 				console.log("found peer with id: %s", peerID);
-// 				return uiObjects[i];
-// 			}
-// 		}
-// 	}
-
-// 	return null;
-// }
-
 function sendInviteToPeer(remotePeer, desc) {
 
 	var msg = createClientMsg( C2H_SIGNAL_TYPE_INVITE );
