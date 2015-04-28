@@ -604,12 +604,12 @@ function updateStats(peer, statsReport)
 		$.extend(true, currentStats.video, statsReport.video);
 
 		var aIn = currentStats.audio.inbound.local;
-		console.log("updateStats: bytesReceived: %s packetsLost: %s packetsReceived: %s",
-								  aIn.bytesReceived, aIn.packetsLost, aIn.packetsReceived);
+		console.log("updateStats: audio: bytesReceived: %s packetsLost: %s packetsReceived: %s",
+								  		 aIn.bytesReceived, aIn.packetsLost, aIn.packetsReceived);
 
 		var vIn = currentStats.video.inbound.local;
-		console.log("updateStats: bytesReceived: %s packetsLost: %s packetsReceived: %s",
-								  vIn.bytesReceived, vIn.packetsLost, vIn.packetsReceived);
+		console.log("updateStats: video: bytesReceived: %s packetsLost: %s packetsReceived: %s",
+								  		 vIn.bytesReceived, vIn.packetsLost, vIn.packetsReceived);
 
 
 		// 2. Crunch the deltas.
