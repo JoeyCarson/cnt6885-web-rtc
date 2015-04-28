@@ -20,8 +20,8 @@
       timestamp: 0,
       results: [],
       channels: [],
-      audio: {},
-      video: {}
+      audio: { inbound: { local:{}, remote:{} }, outbound: { local:{}, remote:{} } },
+      video: { inbound: { local:{}, remote:{} }, outbound: { local:{}, remote:{} } }
     };
 
     if (navigator.mozGetUserMedia) {
@@ -76,7 +76,7 @@
       var idx,
           res;
 
-      console.log("simpleStats: common: begin packageStats");
+      // console.log("simpleStats: common: begin packageStats");
       for (idx = 0; idx < stats.results.length; idx++) {
         res = stats.results[idx];
 
@@ -102,14 +102,13 @@
         }
 
         // Channels - Firefox
-        if (res.type == 'candidatepair' &&
-            res.state == 'succeeded'){
+        if (res.type == 'candidatepair' && res.state == 'succeeded'){
           // not really helpful?
         }
 
         // Audio - Chrome
         if (res.googCodecName == 'opus' && res.bytesSent) {
-          stats.audio = merge(stats.audio, {
+          merge(stats.audio, {
             inputLevel: res.audioInputLevel,
             packetsLost: res.packetsLost,
             rtt: res.googRtt,
@@ -120,35 +119,12 @@
 
         // Audio - Firefox
         if (res.mediaType == 'audio') {
-          if (res.isRemote) {
-
-            var newStats = {
-              inputLevel: '?',
-              rtt: res.mozRtt,
-              packetsLost: res.packetsLost,
-              packetsReceived: res.packetsReceived,
-              bytesReceived: res.bytesReceived
-            };
-
-            //console.log("simpleStats: firefox: updating remote audio stats %o", newStats);
-            stats.audio = merge(stats.audio, newStats);
-            //console.log("simpleStats: firefox: merged audio stats %o", stats.audio);            
-          } else {
-            
-            var newStats = {
-              packetsSent: res.packetsSent,
-              bytesSent: res.bytesSent
-            };
-
-            //console.log("simpleStats: firefox: updating local audio stats %o", newStats);
-            stats.audio = merge(stats.audio, newStats);
-            //console.log("simpleStats: firefox: merged audio stats %o", stats.audio);
-          }
+          parseStdRTPStats(res, stats.audio);
         }
 
         // Video - Chrome
         if (res.googCodecName == 'VP8') {
-          stats.video = merge(stats.video, {
+          merge(stats.video, {
             frameHeightInput: parseInt(res.googFrameHeightInput),
             frameWidthInput: parseInt(res.googFrameWidthInput),
             rtt: parseInt(res.googRtt),
@@ -164,43 +140,62 @@
 
         // Video - Firefox
         if (res.mediaType == 'video') {
-          if (res.isRemote) {
-            // Parse remote statistics.
-            var newStats = {
-              rtt: res.mozRtt,
-              packetsLost: res.packetsLost,
-              packetsReceived: res.packetsReceived,
-              bytesReceived: res.bytesReceived
-            };
-
-            //console.log("simpleStats: firefox: update remote video stats %o", newStats);
-            stats.video = merge(stats.video, newStats);
-
-          } else {
-            // Parse remote statistics.
-            var localVideo = document.getElementById('localVideo');
-
-            var newStats = {
-              frameHeightInput: localVideo.videoHeight,
-              frameWidthInput: localVideo.videoWidth,
-              packetsSent: res.packetsSent,
-              bytesSent: res.bytesSent,
-              frameRateInput: Math.round(res.framerateMean),
-              frameRateSent: -1,  //'?',
-              frameHeightSent: -1,  //'?',
-              frameWidthSent: -1  //'?',
-            };
-            //console.log("simpleStats: firefox: update local video stats %o", newStats);
-            stats.video = merge(stats.video, newStats);
-          }
+          parseStdRTPStats(res, stats.video);
         }
       }
 
-      // Because Firefox gets stats per mediaTrack we need to 'wait'
-      // for both audio and video stats before invoking the callback.
-      // There might be a better way to do this though.
-      if (stats.audio.bytesSent && stats.video.bytesSent) {
-        callback(stats);
+      callback(stats);
+    }
+
+
+    /**
+     * Parse the WebRTC Standard (Firefox) Statistics from the given result object
+     * and write them to the appropriate properties of the targetStats object.
+     * @param res - The RTCRTPStats object generated from RTCPeerConnection.getStats().
+     * @param targetStats - The statistics object to write the standard properties to.
+     */
+    function parseStdRTPStats(res, targetStats)
+    {
+      if (res.type == 'inboundrtp') {
+        // Parse remote statistics.
+        var newStats = {
+          bytesReceived: res.bytesReceived,
+          jitter: res.jitter,
+          rtt: res.mozRtt,
+          packetsLost: res.packetsLost,
+          packetsReceived: res.packetsReceived,
+          timestamp: res.timestamp
+        };
+
+        //console.log("simpleStats: firefox: update remote video stats %o", newStats);
+        if ( res.isRemote ) {
+          targetStats.inbound.remote = newStats;
+        } else {
+          targetStats.inbound.local = newStats;
+        }
+
+      } else if (res.type == 'outboundrtp' ) {
+        // Parse remote statistics.
+        var localVideo = document.getElementById('localVideo');
+
+        var newStats = {
+          bytesSent: res.bytesSent,              
+          packetsSent: res.packetsSent,
+          timestamp: res.timestamp //,              
+          // frameHeightInput: localVideo.videoHeight,
+          // frameWidthInput: localVideo.videoWidth,
+          // frameRateInput: Math.round(res.framerateMean),
+          // frameRateSent: -1,  //'?',
+          // frameHeightSent: -1,  //'?',
+          // frameWidthSent: -1  //'?',
+        };
+
+        //console.log("simpleStats: firefox: update local video stats %o", newStats);
+        if ( res.isRemote ) {
+          targetStats.outbound.remote = newStats;
+        } else {
+          targetStats.outbound.local = newStats;
+        }
       }
     }
 
@@ -209,15 +204,12 @@
      * http://stackoverflow.com/a/171256/980524
      */
     function merge(obj1, obj2) {
-      var obj3 = {};
-      for (var prop in obj1) { obj3[prop] = obj1[prop]; }
       for (var prop in obj2) { 
         if ( obj2[prop] ) { 
-          obj3[prop] = obj2[prop]; 
+          obj1[prop] = obj2[prop]; 
         } 
         //else console.log("not adding %s to obj3. it's undefined", prop);
       }
-      return obj3;
     }
   }
 

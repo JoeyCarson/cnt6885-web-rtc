@@ -482,7 +482,7 @@ function gotRemoteStream(event, peer)
 	console.log("got remote stream");
 	var remoteVideoRoot = $("<div class='peerVideo'></div>");
 	// remove the muted attribute!! Just need to get rid of feedback while locally testing.
-	var remoteVideo = $("<video autoplay/></video>");
+	var remoteVideo = $("<video autoplay /></video>");
 	var videoStats = createStatsUI(peer);
 
 	remoteVideoRoot.data("peer_id", peer.id);
@@ -501,6 +501,10 @@ function gotRemoteStream(event, peer)
 		// wrapper that is not quite fully baked yet.  The value doesn't actually do anything, though one would
 		// expect it to be a method of scheduling an interval statistic update.  Perhaps I can implement this
 		// change and push to the open source repo.  In the meantime, we've got a show to do.
+
+		// The RTCP reporting interval is randomized to prevent unintended synchronization of reporting.
+		// The recommended minimum RTCP report interval per station is 5 seconds. 
+		// Stations should not transmit RTCP reports more often than once every 5 seconds.
 		peer.conn.getSimpleStats( function(response) { updateStats(peer, response); }, 1000 ); 
 	}, 1000);
 }
@@ -532,8 +536,8 @@ function createStatsUI(peer)
 {
 	var ui = $("<div class='statsSetGroup'><div>");
 
-	var audioTable = createCommonStatsTable(peer.stats.delta.audio, createAudioStatsID(peer), "Audio");
-	var videoTable = createCommonStatsTable(peer.stats.delta.video, createVideoStatsID(peer), "Video");
+	var audioTable = createCommonStatsTable(peer.stats.delta.audio.inbound.local, createAudioStatsID(peer), "Audio");
+	var videoTable = createCommonStatsTable(peer.stats.delta.video.inbound.local, createVideoStatsID(peer), "Video");
 
 	ui.append(audioTable);
 	ui.append(videoTable);
@@ -549,7 +553,7 @@ function createCommonStatsTable(commonStatsObj, idPrefix, title)
 	var titlePara = $("<p></p>");
 	titlePara.append(title + ":");
 
-	var table = $("<table><th>property</th><th>value</th><th>average</th></table>");
+	var table = $("<table></table>");
 	
 	var keys = Object.getOwnPropertyNames(commonStatsObj);
 
@@ -568,14 +572,9 @@ function createCommonStatsTable(commonStatsObj, idPrefix, title)
 		var td_val = $("<td></td>");
 		td_val.attr("id", idPrefix + "_" + property);
 
-		// Create the average td.
-		var td_avg = $("<td></td>");
-		td_avg.attr("id", idPrefix + "_" + property + "_avg");
-
 		// Add all td's to the row.
 		row.append(td_name);
 		row.append(td_val);
-		row.append(td_avg);
 
 		// Add the row to the table.
 		table.append(row);
@@ -604,26 +603,24 @@ function updateStats(peer, statsReport)
 		$.extend(true, currentStats.audio, statsReport.audio);
 		$.extend(true, currentStats.video, statsReport.video);
 
-		console.log("updateStats: audio: bytesSent %s bytesReceived: %s packetsLost: %s packetsSent: %s packetsReceived: %s",
-								 currentStats.audio.bytesSent, currentStats.audio.bytesReceived, currentStats.audio.packetsLost, currentStats.audio.packetsSent, currentStats.audio.packetsReceived);
+		var aIn = currentStats.audio.inbound.local;
+		console.log("updateStats: bytesReceived: %s packetsLost: %s packetsReceived: %s",
+								  aIn.bytesReceived, aIn.packetsLost, aIn.packetsReceived);
 
-		console.log("updateStats: video: bytesSent %s bytesReceived: %s packetsLost: %s packetsSent: %s packetsReceived: %s",
-								 currentStats.video.bytesSent, currentStats.video.bytesReceived, currentStats.video.packetsLost, currentStats.video.packetsSent, currentStats.video.packetsReceived);
+		var vIn = currentStats.video.inbound.local;
+		console.log("updateStats: bytesReceived: %s packetsLost: %s packetsReceived: %s",
+								  vIn.bytesReceived, vIn.packetsLost, vIn.packetsReceived);
 
 
 		// 2. Crunch the deltas.
 		var prevStats = peer.stats.prev;
 		var delta = peer.stats.delta;
-	 	crunchCommonDelta(delta.audio, currentStats.audio, prevStats.audio);
-	 	crunchCommonDelta(delta.video, currentStats.video, prevStats.video);
+	 	crunchCommonDelta(delta.audio.inbound.local, aIn, prevStats.audio.inbound.local);
+	 	crunchCommonDelta(delta.video.inbound.local, vIn, prevStats.video.inbound.local);
 
 	 	// 3. Update the previous stats to what current is now.
 	 	prevStats.clear();
 	 	$.extend(true, prevStats, currentStats);
-
-	 	// 4. Update the aggregate.  For reach property in the aggregate, add the associated currentStats value.
-	 	// This is necessary for averages.
-
 
 	 	// Stats are updated.  Apply the changes to the UI.
 	 	updateStatsUIForPeer(peer);
@@ -633,33 +630,36 @@ function updateStats(peer, statsReport)
 // Crunches the common delta properties (e.g. properties that are common among video and audio).
 function crunchCommonDelta(delta, current, prev)
 {
- 	delta.bytesSent   = current.bytesSent   - prev.bytesSent;
  	delta.bytesReceived = current.bytesReceived - prev.bytesReceived;
  	delta.packetsLost = current.packetsLost - prev.packetsLost;
- 	delta.packetsSent = current.packetsSent - prev.packetsSent;
- 	delta.packetsReceived = current.packetsReceived - prev.packetsReceived; 	
+ 	delta.packetsReceived = current.packetsReceived - prev.packetsReceived; 
+ 	delta.jitter = current.jitter;
+ 	// aggregate.bytesSent += current.bytesSent;	
+ 	// aggregate.bytesReceived += current.bytesReceived;
+ 	// aggregate.packetsLost += current.packetsLost;
+ 	// aggregate.packetsSent += current.packetsSent;
+ 	// aggregate.packetsReceived += current.packetsReceived;
 }
 
 function updateStatsUIForPeer(peerObj)
 {
 	// 1. Look up each delta property UI element and set the inner html to the associated values.
-	updatePropertiesUI(peerObj.stats.delta.video, createVideoStatsID(peerObj));
-	updatePropertiesUI(peerObj.stats.delta.audio, createAudioStatsID(peerObj));
+	updatePropertiesUI(peerObj.stats.delta.video.inbound.local, createVideoStatsID(peerObj));
+	updatePropertiesUI(peerObj.stats.delta.audio.inbound.local, createAudioStatsID(peerObj));
 }
 
-function updatePropertiesUI(stats, idPrefix)
+function updatePropertiesUI(deltaStats, idPrefix)
 {
-	var keys = Object.getOwnPropertyNames(stats);
+	var keys = Object.getOwnPropertyNames(deltaStats);
 
 	for ( var k = 0; k < keys.length; k++ ) {
 		
 		var property = keys[k];
 		var propID = "#" + idPrefix + "_" + property;
-		var propAvgID = propID + "_avg";
-		var td_val = $(propID);
 
+		var td_val = $(propID);
 		if ( td_val ) {
-			td_val.html( stats[property] );
+			td_val.html( deltaStats[property] );
 		}
 	}
 }
@@ -693,9 +693,17 @@ function createPeerConn()
 	return peer;
 }
 
+function createInboundStatsObj() {
+	return { bytesReceived: 0, jitter: 0, packetsLost: 0, packetsReceived: 0 };
+}
+
 function createStreamStats()
 {
-	return { bytesSent: 0, bytesReceived: 0, packetsLost: 0, packetsSent: 0, packetsReceived: 0 };
+	return { 
+			inbound:  { local: createInboundStatsObj(), remote: createInboundStatsObj() }, 
+			outbound: { local: createInboundStatsObj(), remote: createInboundStatsObj() } 
+		  };
+ 
 }
 
 
