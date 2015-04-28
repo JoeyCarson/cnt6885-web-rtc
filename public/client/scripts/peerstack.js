@@ -191,11 +191,6 @@ function addRemotePeer(peerObj)
 
 function removeRemotePeer(peerID)
 {
-	// Remove the peer button from the UI, if it exists.
-	var peerUI = findPeerUIObj(peerID);
-	if ( peerUI ) {
-		$(peerUI).remove();
-	}
 
 	// Clean up the video stream if it exists.
 	var pc = getPeerConn(peerID);
@@ -228,22 +223,22 @@ function stopTrackingPeer(peerID)
 	}
 }
 
-function findPeerUIObj(peerID)
-{
+// function findPeerUIObj(peerID)
+// {
 
-	if ( remotePeers[peerID] ) 
-	{
-		var uiObjects = $("#connectedPeerList").children();
-		for ( var i = 0; i < uiObjects.length; i++ ) {
-			if ( $(uiObjects[i]).data("peer_id") == peerID ) {
-				console.log("found peer with id: %s", peerID);
-				return uiObjects[i];
-			}
-		}
-	}
+// 	if ( remotePeers[peerID] ) 
+// 	{
+// 		var uiObjects = $("#connectedPeerList").children();
+// 		for ( var i = 0; i < uiObjects.length; i++ ) {
+// 			if ( $(uiObjects[i]).data("peer_id") == peerID ) {
+// 				console.log("found peer with id: %s", peerID);
+// 				return uiObjects[i];
+// 			}
+// 		}
+// 	}
 
-	return null;
-}
+// 	return null;
+// }
 
 function sendInviteToPeer(remotePeer, desc) {
 
